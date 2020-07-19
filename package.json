@@ -10,14 +10,18 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:vscode-kdb-q.helloWorld"
+		"onCommand:vscode-kdb-q.connectToServer"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "vscode-kdb-q.helloWorld",
-				"title": "Hello World"
+				"command": "vscode-kdb-q.connectToServer",
+				"title": "QEVO: Connect to kdb+ server"
+			},
+			{
+				"command": "vscode-kdb-q.runSelectionQuery",
+				"title": "QEVO: Run selection as query"
 			}
 		]
 	},
@@ -43,6 +47,8 @@
 		"vscode-test": "^1.3.0"
 	},
 	"dependencies": {
+		"@types/long": "^4.0.1",
+		"long": "^4.0.0",
 		"node-q": "^2.5.0"
 	}
 }
