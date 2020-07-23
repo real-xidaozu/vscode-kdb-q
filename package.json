@@ -24,7 +24,28 @@
 				"command": "vscode-kdb-q.runSelectionQuery",
 				"title": "kdb-q: Run selection as query"
 			}
-		]
+		],
+        "languages": [
+            {
+                "id": "q",
+                "aliases": [
+                    "q",
+                    "q"
+                ],
+                "extensions": [
+					".q",
+					".k"
+                ],
+                "configuration": "./grammars/vscode-kdb-q-config.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "q",
+                "scopeName": "source.q",
+                "path": "./grammars/vscode-kdb-q.json"
+            }
+        ]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
