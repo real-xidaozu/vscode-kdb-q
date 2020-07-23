@@ -147,7 +147,7 @@ function showGrid(context: vscode.ExtensionContext, obj: string): void {
 	// Always show in side panel.
 	const columnToShowIn = vscode.ViewColumn.Beside;
 	// const payload = { data: JSON.stringify(obj), schema: {} };
-	const payload = JSON.stringify(obj);
+	// const payload = JSON.stringify(obj);
 	
 	if (gridPanel) {
 		// If we already have a panel, show it in the target column
@@ -157,52 +157,68 @@ function showGrid(context: vscode.ExtensionContext, obj: string): void {
 		// Otherwise, create a new panel
 		gridPanel = vscode.window.createWebviewPanel('kdb-q-grid', 'KDB+ Table', { preserveFocus: true, viewColumn: columnToShowIn }, { enableScripts: true, retainContextWhenHidden: true });
 		
+		const uriAgGrid = gridPanel.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'libs', 'ag-grid', 'ag-grid-community.min.noStyle.js')));
+		const uriAgGridCSS = gridPanel.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'libs', 'ag-grid', 'ag-grid.css')));
+		const uriAgGridTheme = gridPanel.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'libs', 'ag-grid', 'ag-theme-balham-dark.css')));
+	
+		const grid_content = `
+			<html>
+				<head>
+					<script src="${uriAgGrid}"></script>
+					<style> html, body { margin: 0; padding: 0; height: 100%; } </style>
+					<link rel="stylesheet" href="${uriAgGridCSS}">
+					<link rel="stylesheet" href="${uriAgGridTheme}">
+				</head>
+			<body>
+				<div id="myGrid" style="height: 100%; width: 100%;" class="ag-theme-balham-dark"></div>
+			</body>
+			<script type="text/javascript">
+				var columnDefinitions = [
+					{ headerName: "Time", field: "time" },
+					{ headerName: "Symbol", field: "sym" },
+					{ headerName: "Size", field: "size" },
+					{ headerName: "Price", field: "price" }
+				];
+
+				var gridOptions = {
+					onGridReady: event => event.api.sizeColumnsToFit(),
+					onGridSizeChanged: event => event.api.sizeColumnsToFit(),
+					defaultColDef: {
+						editable: true,
+						resizable: true,
+						filter: true,
+						sortable: true,
+						minWidth: 100,
+						flex: 1
+					}
+				};
+
+				// Handle the message inside the webview
+				window.addEventListener('message', event => {
+					const message = event.data; // The JSON data our extension sent
+		
+					var payload = message.payload;
+		
+					gridOptions.api.setRowData(payload);
+					gridOptions.api.setColumnDefs(columnDefinitions);
+				});
+
+				// setup the grid after the page has finished loading
+				document.addEventListener('DOMContentLoaded', function () {
+					var gridDiv = document.querySelector('#myGrid');
+					new agGrid.Grid(gridDiv, gridOptions);
+				});
+			</script>
+		</html>
+		`;
+
+		gridPanel.webview.html = grid_content;
+
 		// Reset when the current panel is closed
 		gridPanel.onDidDispose(() => {
 			gridPanel = undefined;
 		}, null, context.subscriptions);
 	}
 
-	const uriAgGrid = gridPanel.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'libs', 'ag-grid', 'ag-grid-community.min.noStyle.js')));
-	const uriAgGridCSS = gridPanel.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'libs', 'ag-grid', 'ag-grid.css')));
-	const uriAgGridTheme = gridPanel.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'libs', 'ag-grid', 'ag-theme-balham.css')));
-
-	const grid_content = `
-		<html>
-			<head>
-				<script src="${uriAgGrid}"></script>
-				<style> html, body { margin: 0; padding: 0; height: 100%; } </style>
-				<link rel="stylesheet" href="${uriAgGridCSS}">
-				<link rel="stylesheet" href="${uriAgGridTheme}">
-			</head>
-		<body>
-			<div id="myGrid" style="height: 100%; width: 100%;" class="ag-theme-balham"></div>
-		</body>
-		<script type="text/javascript">
-			var payload = ${payload};
-			var columnDefinitions = [
-				{ headerName: "Time", field: "time" },
-				{ headerName: "Symbol", field: "sym" },
-				{ headerName: "Size", field: "size" },
-				{ headerName: "Price", field: "price" }
-			];
-
-			var gridOptions = {
-				onGridReady: event => event.api.sizeColumnsToFit(),
-				onGridSizeChanged: event => event.api.sizeColumnsToFit(),
-				defaultColDef: {
-					resizable: true,
-					filter: true,
-					sortable: true
-				},
-				columnDefs: columnDefinitions,
-			    rowData: payload
-			};
-			var eGridDiv = document.querySelector('#myGrid');
-			new agGrid.Grid(eGridDiv, gridOptions);
-		</script>
-	</html>
-	`;
-
-	gridPanel.webview.html = grid_content;
+	gridPanel.webview.postMessage({ payload: obj });
 }
