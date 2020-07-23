@@ -10,6 +10,7 @@
 		"Other"
 	],
 	"activationEvents": [
+		"onLanguage:q",
 		"onCommand:vscode-kdb-q.connectToServer",
 		"onCommand:vscode-kdb-q.runSelectionQuery"
 	],
