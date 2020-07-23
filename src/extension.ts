@@ -436,7 +436,7 @@ function showGrid(context: vscode.ExtensionContext, obj: string): void {
 	}
 	else {
 		// Otherwise, create a new panel
-		gridPanel = vscode.window.createWebviewPanel('kdb-q-grid', 'KDB+ Table', { preserveFocus: true, viewColumn: columnToShowIn }, { enableScripts: true, retainContextWhenHidden: true });
+		gridPanel = vscode.window.createWebviewPanel('kdb-q-grid', 'KDB+ Result', { preserveFocus: true, viewColumn: columnToShowIn }, { enableScripts: true, retainContextWhenHidden: true });
 		
 		const uriAgGrid = gridPanel.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'libs', 'ag-grid', 'ag-grid-community.min.noStyle.js')));
 		const uriAgGridCSS = gridPanel.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'libs', 'ag-grid', 'ag-grid.css')));
@@ -444,21 +444,26 @@ function showGrid(context: vscode.ExtensionContext, obj: string): void {
 	
 		const grid_content = `
 			<html>
-				<head>
-					<script src="${uriAgGrid}"></script>
-					<style> html, body { margin: 0; padding: 0; height: 100%; } </style>
-					<link rel="stylesheet" href="${uriAgGridCSS}">
-					<link rel="stylesheet" href="${uriAgGridTheme}">
-				</head>
+			<head>
+				<script src="${uriAgGrid}"></script>
+				<style> html, body { margin: 0; padding: 0; height: 100%; } </style>
+				<link rel="stylesheet" href="${uriAgGridCSS}">
+				<link rel="stylesheet" href="${uriAgGridTheme}">
+			</head>
 			<body>
+				<div style="margin: 10px; ">
+					<button onclick="exportToCsv()">
+						Export to CSV
+					</button>
+				</div>
 				<div id="myGrid" style="height: 100%; width: 100%;" class="ag-theme-balham-dark"></div>
 			</body>
 			<script type="text/javascript">
 				var columnDefinitions = [
-					{ headerName: "Time", field: "time" },
-					{ headerName: "Symbol", field: "sym" },
-					{ headerName: "Size", field: "size" },
-					{ headerName: "Price", field: "price" }
+					{ headerName: "Time", field: "time", filter: "agDateColumnFilter" },
+					{ headerName: "Symbol", field: "sym", filter: "agTextColumnFilter" },
+					{ headerName: "Size", field: "size", type: "numberColumn" },
+					{ headerName: "Price", field: "price", type: "numberColumn" }
 				];
 
 				var gridOptions = {
@@ -471,20 +476,63 @@ function showGrid(context: vscode.ExtensionContext, obj: string): void {
 						sortable: true,
 						minWidth: 100,
 						flex: 1
+					},
+					columnTypes: {
+						nonEditableColumn: { editable: false },
+						numberColumn: { width: 130, filter: 'agNumberColumnFilter' },
+						dateColumn: {
+							// specify we want to use the date filter
+							filter: 'agDateColumnFilter',
+					
+							// add extra parameters for the date filter
+							filterParams: {
+								// provide comparator function
+								comparator: function(filterLocalDateAtMidnight, cellValue) {
+									// In the example application, dates are stored as dd/mm/yyyy
+									// We create a Date object for comparison against the filter date
+									var dateParts = cellValue.split('/');
+									var day = Number(dateParts[0]);
+									var month = Number(dateParts[1]) - 1;
+									var year = Number(dateParts[2]);
+									var cellDate = new Date(year, month, day);
+							
+									// Now that both parameters are Date objects, we can compare
+									if (cellDate < filterLocalDateAtMidnight) {
+										return -1;
+									} else if (cellDate > filterLocalDateAtMidnight) {
+										return 1;
+									} else {
+										return 0;
+									}
+								},
+							},
+						},
 					}
 				};
 
-				// Handle the message inside the webview
+				function exportToCsv() {
+					var params = {
+						// suppressQuotes: getValue('#suppressQuotes'),
+						// columnSeparator: getValue('#columnSeparator')
+					};
+					  
+					if (params.suppressQuotes || params.columnSeparator) {
+						alert('NOTE: you are downloading a file with non-standard quotes or separators - it may not render correctly in Excel.');
+					}
+
+					gridOptions.api.exportDataAsCsv(params);
+				};
+
+				// Handle the message inside the webview.
 				window.addEventListener('message', event => {
-					const message = event.data; // The JSON data our extension sent
-		
-					var payload = message.payload;
+					const message = event.data;
+					const payload = message.payload;
 		
 					gridOptions.api.setRowData(payload);
 					gridOptions.api.setColumnDefs(columnDefinitions);
 				});
 
-				// setup the grid after the page has finished loading
+				// Setup the grid after the page has finished loading.
 				document.addEventListener('DOMContentLoaded', function () {
 					var gridDiv = document.querySelector('#myGrid');
 					new agGrid.Grid(gridDiv, gridOptions);
