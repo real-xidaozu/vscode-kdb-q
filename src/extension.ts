@@ -7,8 +7,9 @@ import * as path from 'path';
 let connection : nodeq.Connection;
 let connectionStatus: vscode.StatusBarItem;
 
-// Track current webview panel.
+// Track our current panels.
 let gridPanel: vscode.WebviewPanel | undefined = undefined;
+let consolePanel: vscode.OutputChannel | undefined = undefined;
 
 // This method is called when the extension is activated.
 // The extension is activated the very first time the command is executed.
@@ -84,10 +85,11 @@ export function activate(context: vscode.ExtensionContext) {
 				throw err;
 			}
 
-			// TODO: Print (formatted) result in special panel.
-			console.log("Result:", res);
-
 			showGrid(context, res);
+			
+			// console.log("Result:", res);
+			let result: string = formatArray(res);
+			showConsole(context, text, result);
 		});
 	});
 
@@ -410,21 +412,17 @@ function updateConnectionStatus(hostname: string): void {
 	}
 }
 
-function getWebviewContent(): string {
-	return `<!DOCTYPE html>
-  	<html lang="en">
-  		<head>
-	  		<meta charset="UTF-8">
-	  		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	  		<title>Cat Coding</title>
-  		</head>
-  		<body>
-	  		<img src="https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif" width="300" />
-  		</body>
-  	</html>`;
+function showConsole(context: vscode.ExtensionContext, query: string, text: string) {
+	if (consolePanel === undefined) {
+		consolePanel = vscode.window.createOutputChannel('kdb-q console');
+		consolePanel.show(true);
+	}
+
+	consolePanel.appendLine(`=== Query : ${query.replace("\n", " ")} ===`);
+	consolePanel.appendLine(text);
 }
 
-function showGrid(context: vscode.ExtensionContext, obj: string): void {
+function showGrid(context: vscode.ExtensionContext, obj: any): void {
 	// Always show in side panel.
 	const columnToShowIn = vscode.ViewColumn.Beside;
 	// const payload = { data: JSON.stringify(obj), schema: {} };
@@ -550,4 +548,145 @@ function showGrid(context: vscode.ExtensionContext, obj: string): void {
 	}
 
 	gridPanel.webview.postMessage({ payload: obj });
+}
+
+function formatArray(rows_: any) {
+	if (rows_.length === 0) {
+		return "";
+	}
+
+	var aligns = Object.values(rows_[0]).map(x => (typeof x === "number" ? "." : "l"));
+	let opts = { align: aligns };
+
+	for (let j = 0; j < rows_.length; ++j) {
+		var xs = Object.values(rows_[j]);
+		rows_[j] = xs.map(x => getStringContent(x));
+	}
+
+	return formatTable(rows_, opts);
+}
+
+function formatTable(rows_: any, opts: any) {
+    if (!opts) {
+		opts = {};
+	}
+
+    var hsep = opts.hsep === undefined ? '  ' : opts.hsep;
+    var align = opts.align || [];
+    var stringLength = opts.stringLength || function (s: any) { return String(s).length; };
+    
+    var dotsizes = reduce(rows_, function (acc: any, row: any) {
+        forEach(row, function (c: any, ix: any) {
+			var [left, right] = dotoffsets(c);
+
+			if (!acc[ix]) {
+				acc[ix] = [left, right];
+			}
+			else {
+				if (left > acc[ix][0]) {
+					acc[ix][0] = left;
+				}
+				if (right > acc[ix][1]) {
+					acc[ix][1] = right;
+				}
+			}
+        });
+        return acc;
+    }, []);
+    
+    var rows = map(rows_, function (row: any) {
+        return map(row, function (c_: any, ix: any) {
+            var c = String(c_);
+            if (align[ix] === '.') {
+				var [left, right] = dotoffsets(c);
+
+				var test = /\./.test(c);
+				var [maxLeft, maxRight] = dotsizes[ix];
+				var leftSize = maxLeft - left;
+				var rightSize = (test ? 0 : 1) + maxRight - right;
+
+				return ' '.repeat(leftSize) + c + ' '.repeat(rightSize);
+            }
+            else {
+				return c;
+			}
+        });
+    });
+    
+    var sizes = reduce(rows, function (acc: any, row: any) {
+        forEach(row, function (c: any, ix: any) {
+            var n = stringLength(c);
+            if (!acc[ix] || n > acc[ix]) {
+				acc[ix] = n;
+			}
+        });
+        return acc;
+    }, []);
+    
+    var result = map(rows, function (row: any) {
+        return map(row, function (c: any, ix: any) {
+            var n = (sizes[ix] - stringLength(c)) || 0;
+            var s = Array(Math.max(n + 1, 1)).join(' ');
+            if (align[ix] === 'r' || align[ix] === '.') {
+                return s + c;
+            }
+            if (align[ix] === 'c') {
+                return Array(Math.ceil(n / 2 + 1)).join(' ')
+                    + c + Array(Math.floor(n / 2 + 1)).join(' ')
+                ;
+            }
+            
+            return c + s;
+        }).join(hsep).replace(/\s+$/, '');
+	}).join('\n');
+	
+	return result;
+};
+
+function dotoffsets(c: string) {
+	var m = /\.[^.]*$/.exec(c);
+    return m ? [m.index, c.length - m.index - 1] : [c.length, 0];
+}
+
+function reduce(xs: any, f: any, init: any) {
+    if (xs.reduce) {
+		return xs.reduce(f, init);
+	}
+
+    var i = 0;
+    var acc = arguments.length >= 3 ? init : xs[i++];
+    for (; i < xs.length; i++) {
+        f(acc, xs[i], i);
+	}
+	
+    return acc;
+}
+
+function forEach(xs: any, f: any) {
+    if (xs.forEach) {
+		return xs.forEach(f);
+	}
+
+    for (var i = 0; i < xs.length; i++) {
+        f.call(xs, xs[i], i);
+    }
+}
+
+function map(xs: any, f: any) {
+    if (xs.map) {
+		return xs.map(f);
+	}
+
+    var res = [];
+    for (var i = 0; i < xs.length; i++) {
+        res.push(f.call(xs, xs[i], i));
+	}
+}
+
+function getStringContent(x: any) {
+	if (x instanceof Date) {
+		return x.toISOString();
+	}
+
+	return x.toString();
 }
