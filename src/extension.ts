@@ -11,6 +11,14 @@ let connectionStatus: vscode.StatusBarItem;
 let gridPanel: vscode.WebviewPanel | undefined = undefined;
 let consolePanel: vscode.OutputChannel | undefined = undefined;
 
+const constants = {
+	names: ['','boolean','guid','','byte','short','int','long','real','float','char','symbol','timestamp','month','date','datetime','timespan','minute','second','time'],
+    types: ['','b','g','','','h','i','j','e','f','c','','p','m','d','z','n','u','v','t'],
+    listSeparator:  [';','',' ','','',' ',' ',' ',' ',' ','','',' ',' ',' ',' ',' ',' ',' ',' '],
+    listPrefix: ['(','','','','0x','','','','','','','','','','','','','','',''],
+    listSuffix: [')','b','','','','h','i','','e','f','','','','m','','','','','','']
+};
+
 export type MetaResult = {
 	c: string;
 	t: string;
@@ -20,8 +28,8 @@ export type MetaResult = {
 
 export type QueryResult = {
     result: boolean,
-	type?: number,
-	meta?: MetaResult[],
+	type: number,
+	meta: MetaResult[],
     data: any,
 };
 
@@ -108,23 +116,22 @@ export function activate(context: vscode.ExtensionContext) {
 		// TODO: Support multiple selections?
 		var selection = editor.selection;
 		var query = editor.document.getText(selection);
-		var trap =  '@[{r:value x; r:$[not 99h = t:type r; r; 98h = type key r; 0!r; enlist r]; `result`type`meta`data!(1b; t; $[t in 98 99h; 0!meta r; ()]; r) }; ; { `result`data!(0b; x)}]';
+		var trap =  '@[{r:value x; r:$[not 99h = t:type r; r; 98h = type key r; 0!r; enlist r]; `result`type`meta`data!(1b; t; $[t in 98 99h; 0!meta r; ()]; r) }; ; { `result`type`meta`data!(0b; type x; (); x)}]';
 
 		// Flush query through connection and print result.
-		connection.k(trap, query, function(err, res: QueryResult) {
+		connection.k(trap, query, function(err, result: QueryResult) {
 			if (err) {
 				throw err;
 			}
 
-			showGrid(context, res.data);
-			
 			// TODO: Result not in correct format when using TorQ gateway.q.
 			// Probably result is not being handled correctly when .z.pg is changed.
 			// console.log("Result:", res);
-			const howLong = timer();
-			let result: string = formatQueryResult(res);
-			console.log("Took:", howLong.ms);
 
+			// Stringify result, since we'LL be outputting this somewhere anyway.
+			result.data = stringifyResult(result);
+
+			showGrid(context, result);
 			showConsole(context, query, result);
 		});
 	});
@@ -448,25 +455,44 @@ function updateConnectionStatus(hostname: string): void {
 	}
 }
 
-function showConsole(context: vscode.ExtensionContext, query: string, text: string) {
+function showConsole(context: vscode.ExtensionContext, query: string, result: QueryResult) {
 	if (consolePanel === undefined) {
 		consolePanel = vscode.window.createOutputChannel('kdb-q console');
 		consolePanel.show(true);
 	}
 
+	const elapsed = timer();
+
+	// Determine alignment for each column
+	let headers = result.meta.map(m => m.c);
+	let aligns = result.meta.map(m => m.t === "f" ? "." : "l");
+	let opts = { align: aligns };
+	let data = result.data;
+
+	// Return formatted table.
+	let text: string = isTable(result) ? formatTable(headers, data, opts) : data;
+
+	console.log("Took:", elapsed.ms);
+
 	consolePanel.appendLine(`=== Query : ${query.replace("\n", " ")} ===`);
 	consolePanel.appendLine(text);
 }
 
-function showGrid(context: vscode.ExtensionContext, obj: any): void {
+function showGrid(context: vscode.ExtensionContext, result: QueryResult): void {
+	if (!isTable(result)) {
+		return;
+	}
+
+	let columnDefinitions = result.meta.map(m => {
+		return { headerName: m.c, field: m.c, type: m.t };
+	});
+
 	// Always show in side panel.
 	const columnToShowIn = vscode.ViewColumn.Beside;
-	// const payload = { data: JSON.stringify(obj), schema: {} };
-	// const payload = JSON.stringify(obj);
-	
+
 	if (gridPanel) {
 		// If we already have a panel, show it in the target column
-		gridPanel.reveal(columnToShowIn);
+		gridPanel.reveal(columnToShowIn, true);
 	}
 	else {
 		// Otherwise, create a new panel
@@ -485,62 +511,16 @@ function showGrid(context: vscode.ExtensionContext, obj: any): void {
 				<link rel="stylesheet" href="${uriAgGridTheme}">
 			</head>
 			<body>
-				<div style="margin: 10px; ">
-					<button onclick="exportToCsv()">
-						Export to CSV
-					</button>
-				</div>
+				<!-- div style="margin: 10px; "><button onclick="exportToCsv()">Export to CSV</button></div -->
 				<div id="myGrid" style="height: 100%; width: 100%;" class="ag-theme-balham-dark"></div>
 			</body>
 			<script type="text/javascript">
-				var columnDefinitions = [
-					{ headerName: "Time", field: "time", filter: "agDateColumnFilter" },
-					{ headerName: "Symbol", field: "sym", filter: "agTextColumnFilter" },
-					{ headerName: "Size", field: "size", type: "numberColumn" },
-					{ headerName: "Price", field: "price", type: "numberColumn" }
-				];
-
 				var gridOptions = {
-					onGridReady: event => event.api.sizeColumnsToFit(),
-					onGridSizeChanged: event => event.api.sizeColumnsToFit(),
 					defaultColDef: {
 						editable: true,
 						resizable: true,
 						filter: true,
-						sortable: true,
-						minWidth: 100,
-						flex: 1
-					},
-					columnTypes: {
-						nonEditableColumn: { editable: false },
-						numberColumn: { width: 130, filter: 'agNumberColumnFilter' },
-						dateColumn: {
-							// specify we want to use the date filter
-							filter: 'agDateColumnFilter',
-					
-							// add extra parameters for the date filter
-							filterParams: {
-								// provide comparator function
-								comparator: function(filterLocalDateAtMidnight, cellValue) {
-									// In the example application, dates are stored as dd/mm/yyyy
-									// We create a Date object for comparison against the filter date
-									var dateParts = cellValue.split('/');
-									var day = Number(dateParts[0]);
-									var month = Number(dateParts[1]) - 1;
-									var year = Number(dateParts[2]);
-									var cellDate = new Date(year, month, day);
-							
-									// Now that both parameters are Date objects, we can compare
-									if (cellDate < filterLocalDateAtMidnight) {
-										return -1;
-									} else if (cellDate > filterLocalDateAtMidnight) {
-										return 1;
-									} else {
-										return 0;
-									}
-								},
-							},
-						},
+						sortable: true
 					}
 				};
 
@@ -549,7 +529,7 @@ function showGrid(context: vscode.ExtensionContext, obj: any): void {
 						// suppressQuotes: getValue('#suppressQuotes'),
 						// columnSeparator: getValue('#columnSeparator')
 					};
-					  
+					
 					if (params.suppressQuotes || params.columnSeparator) {
 						alert('NOTE: you are downloading a file with non-standard quotes or separators - it may not render correctly in Excel.');
 					}
@@ -561,9 +541,17 @@ function showGrid(context: vscode.ExtensionContext, obj: any): void {
 				window.addEventListener('message', event => {
 					const message = event.data;
 					const payload = message.payload;
-		
+					const columns = message.columns;
+
 					gridOptions.api.setRowData(payload);
-					gridOptions.api.setColumnDefs(columnDefinitions);
+					gridOptions.api.setColumnDefs(columns);
+
+					var allColumnIds = [];
+					gridOptions.columnApi.getAllColumns().forEach(function(column) {
+					  	allColumnIds.push(column.colId);
+					});
+				  
+					gridOptions.columnApi.autoSizeColumns(allColumnIds, false);
 				});
 
 				// Setup the grid after the page has finished loading.
@@ -583,35 +571,47 @@ function showGrid(context: vscode.ExtensionContext, obj: any): void {
 		}, null, context.subscriptions);
 	}
 
-	gridPanel.webview.postMessage({ payload: obj });
+	gridPanel.webview.postMessage({ columns: columnDefinitions, payload: result.data });
 }
 
-function formatQueryResult(result: QueryResult) {
+function isTable(result: QueryResult): boolean {
+	if (!result.result || !result.meta || result.meta.length === 0 || result.data.length === 0) {
+		return false;
+	}
+
+	return true;
+}
+
+function stringifyResult(result: QueryResult) {
 	if (!result.result) {
 		return "";
 	}
 
-	if (!result.meta) {
-		return result.data.toString();
+	// If it's not a table, perform simple stringification.
+	if (!isTable(result)) {
+		return stringify(constants.types[result.type!], result.data);
 	}
 
-	let rows: any = result.data;
-	if (rows.length === 0) {
-		return "";
-	}
+	return stringifyTable(result.meta, result.data);
+}
 
-	var headers = result.meta.map(m => m.c);
-	var types = result.meta.map(m => m.t);
-	var aligns = Object.values(rows[0]).map(x => (typeof x === "number" ? "." : "l"));
-
-	let opts = { align: aligns };
+function stringifyTable(meta: MetaResult[], rows: any): any {
+	let result = new Array(rows.length);
+	let types = meta.map(m => m.t);
+	let fromEntries = (arr: any) => Object.assign({}, ...Array.from(arr, ([k, v]) => ({[k]: v}) ));
 
 	for (let i = 0; i < rows.length; ++i) {
-		let values = Object.values(rows[i]);
-		rows[i] = values.map((value, j) => stringify(types[j], value));
+		let keys = Object.keys(rows[i]);
+		let values = Object.values(rows[i]).map((x, j) => stringify(types[j], x));
+
+		let entries = keys.map(function(key, i) {
+			return [key, values[i]];
+		});
+
+		result[i] = fromEntries(entries);
 	}
 
-	return formatTable(headers, rows, opts);
+	return result;
 }
 
 function formatTable(headers_: any, rows_: any, opts: any) {
@@ -619,11 +619,18 @@ function formatTable(headers_: any, rows_: any, opts: any) {
 		opts = {};
 	}
 
+	// Convert to array of arrays, instead of array of objects.
+	// Make sure we store the new array separately, don't alter orginal.
+	let data = new Array(rows_.length);
+	for (let i = 0; i < rows_.length; ++i) {
+		data[i] = (typeof(rows_[i]) === "object" ? Object.values(rows_[i]) : rows_[i]);
+	}
+
     var hsep = opts.hsep === undefined ? ' ' : opts.hsep;
     var align = opts.align || [];
     var stringLength = opts.stringLength || function (s: any) { return String(s).length; };
     
-    var dotsizes = reduce(rows_, function (acc: any, row: any) {
+    var dotsizes = reduce(data, function (acc: any, row: any) {
         forEach(row, function (c: any, ix: any) {
 			var [left, right] = dotoffsets(c);
 
@@ -642,7 +649,7 @@ function formatTable(headers_: any, rows_: any, opts: any) {
         return acc;
     }, []);
     
-    var rows = map(rows_, function (row: any) {
+    var rows = map(data, function (row: any) {
         return map(row, function (c_: any, ix: any) {
             var c = String(c_);
             if (align[ix] === '.') {
