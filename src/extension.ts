@@ -11,6 +11,36 @@ let connectionStatus: vscode.StatusBarItem;
 let gridPanel: vscode.WebviewPanel | undefined = undefined;
 let consolePanel: vscode.OutputChannel | undefined = undefined;
 
+export type MetaResult = {
+	c: string;
+	t: string;
+	a: string;
+	f: string;
+};
+
+export type QueryResult = {
+    result: boolean,
+	type?: number,
+	meta?: MetaResult[],
+    data: any,
+};
+
+export function timer() {
+    let timeStart = new Date().getTime();
+    return {
+        /** <integer>s e.g 2s etc. */
+        get seconds() {
+            const seconds = Math.ceil((new Date().getTime() - timeStart) / 1000) + 's';
+            return seconds;
+        },
+        /** Milliseconds e.g. 2000ms etc. */
+        get ms() {
+            const ms = (new Date().getTime() - timeStart) + 'ms';
+            return ms;
+        }
+    };
+}
+
 // This method is called when the extension is activated.
 // The extension is activated the very first time the command is executed.
 export function activate(context: vscode.ExtensionContext) {
@@ -77,19 +107,25 @@ export function activate(context: vscode.ExtensionContext) {
 		// Get the selected text.
 		// TODO: Support multiple selections?
 		var selection = editor.selection;
-		var text = editor.document.getText(selection);
+		var query = editor.document.getText(selection);
+		var trap =  '@[{r:value x; r:$[not 99h = t:type r; r; 98h = type key r; 0!r; enlist r]; `result`type`meta`data!(1b; t; $[t in 98 99h; 0!meta r; ()]; r) }; ; { `result`data!(0b; x)}]';
 
 		// Flush query through connection and print result.
-		connection.k(text, function(err, res) {
+		connection.k(trap, query, function(err, res: QueryResult) {
 			if (err) {
 				throw err;
 			}
 
-			showGrid(context, res);
+			showGrid(context, res.data);
 			
+			// TODO: Result not in correct format when using TorQ gateway.q.
+			// Probably result is not being handled correctly when .z.pg is changed.
 			// console.log("Result:", res);
-			let result: string = formatArray(res);
-			showConsole(context, text, result);
+			const howLong = timer();
+			let result: string = formatQueryResult(res);
+			console.log("Took:", howLong.ms);
+
+			showConsole(context, query, result);
 		});
 	});
 
@@ -550,23 +586,33 @@ function showGrid(context: vscode.ExtensionContext, obj: any): void {
 	gridPanel.webview.postMessage({ payload: obj });
 }
 
-function formatArray(rows_: any) {
-	if (rows_.length === 0) {
+function formatQueryResult(result: QueryResult) {
+	if (!result.result) {
 		return "";
 	}
 
-	var aligns = Object.values(rows_[0]).map(x => (typeof x === "number" ? "." : "l"));
-	let opts = { align: aligns };
-
-	for (let j = 0; j < rows_.length; ++j) {
-		var xs = Object.values(rows_[j]);
-		rows_[j] = xs.map(x => getStringContent(x));
+	if (!result.meta) {
+		return result.data.toString();
 	}
 
-	return formatTable(rows_, opts);
+	let rows: any = result.data;
+	if (rows.length === 0) {
+		return "";
+	}
+
+	var headers = result.meta.map(m => m.c);
+	var aligns = Object.values(rows[0]).map(x => (typeof x === "number" ? "." : "l"));
+	let opts = { align: aligns };
+
+	for (let i = 0; i < rows.length; ++i) {
+		let values = Object.values(rows[i]);
+		rows[i] = values.map(value => stringify(value));
+	}
+
+	return formatTable(headers, rows, opts);
 }
 
-function formatTable(rows_: any, opts: any) {
+function formatTable(headers_: any, rows_: any, opts: any) {
     if (!opts) {
 		opts = {};
 	}
@@ -603,7 +649,7 @@ function formatTable(rows_: any, opts: any) {
 				var test = /\./.test(c);
 				var [maxLeft, maxRight] = dotsizes[ix];
 				var leftSize = maxLeft - left;
-				var rightSize = (test ? 0 : 1) + maxRight - right;
+				var rightSize = (maxRight === 0 || test ? 0 : 1) + maxRight - right;
 
 				return ' '.repeat(leftSize) + c + ' '.repeat(rightSize);
             }
@@ -621,13 +667,13 @@ function formatTable(rows_: any, opts: any) {
 			}
         });
         return acc;
-    }, []);
-    
+    }, headers_.map((x: any) => x.length));
+
     var result = map(rows, function (row: any) {
         return map(row, function (c: any, ix: any) {
             var n = (sizes[ix] - stringLength(c)) || 0;
             var s = Array(Math.max(n + 1, 1)).join(' ');
-            if (align[ix] === 'r' || align[ix] === '.') {
+            if (align[ix] === 'r'/* || align[ix] === '.'*/) {
                 return s + c;
             }
             if (align[ix] === 'c') {
@@ -637,10 +683,16 @@ function formatTable(rows_: any, opts: any) {
             }
             
             return c + s;
-        }).join(hsep).replace(/\s+$/, '');
+        }).join(hsep);
 	}).join('\n');
 	
-	return result;
+	var header = map(headers_, function (c: any, ix: any) {
+		return c + ' '.repeat(Math.max(0, sizes[ix] - c.length));
+	}).join(hsep) + '\n';
+
+	var separator = '-'.repeat(header.length) + '\n';
+
+	return header + separator + result;
 };
 
 function dotoffsets(c: string) {
@@ -683,7 +735,7 @@ function map(xs: any, f: any) {
 	}
 }
 
-function getStringContent(x: any) {
+function stringify(x: any) {
 	if (x instanceof Date) {
 		return x.toISOString();
 	}
