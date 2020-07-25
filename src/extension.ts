@@ -116,21 +116,30 @@ export function activate(context: vscode.ExtensionContext) {
 		// TODO: Support multiple selections?
 		var selection = editor.selection;
 		var query = editor.document.getText(selection);
-		var trap =  '@[{r:value x; r:$[not 99h = t:type r; r; 98h = type key r; 0!r; enlist r]; `result`type`meta`data!(1b; t; $[t in 98 99h; 0!meta r; ()]; r) }; ; { `result`type`meta`data!(0b; type x; (); x)}]';
+
+		// Wrap the query result, make sure the query is executed in global scope.
+		var wrapped = '{ x:$[not 99h = t:type x; x; 98h = type key x; 0!x; enlist x]; `result`type`meta`data!(1b; t; $[t in 98 99h; 0!meta x; ()]; x) }[' + query +']';
+
+		// TODO: Make these configurable through settings.
+		// A server explorer showing all servers available in gateway is also nice.
+		var gatewayMode = true;
+		var serverType = "hdb";
+
+		if (gatewayMode) {
+			// Wrap the result in a gateway call, make sure to escape double quotes.
+			wrapped = '.gw.syncexec["' + wrapped.replace(/"/g, '\\"') + '"; `' + serverType +']';
+		}
 
 		// Flush query through connection and print result.
-		connection.k(trap, query, function(err, result: QueryResult) {
+		connection.k(wrapped, function(err, result: QueryResult) {
 			if (err) {
-				throw err;
+				result = { result: false, type: 11, meta: [], data: err.message };
 			}
-
-			// TODO: Result not in correct format when using TorQ gateway.q.
-			// Probably result is not being handled correctly when .z.pg is changed.
-			// console.log("Result:", res);
 
 			// Stringify result, since we'LL be outputting this somewhere anyway.
 			result.data = stringifyResult(result);
 
+			// Show in grid and console.
 			showGrid(context, result);
 			showConsole(context, query, result);
 		});
