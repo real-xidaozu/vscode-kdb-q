@@ -601,12 +601,14 @@ function formatQueryResult(result: QueryResult) {
 	}
 
 	var headers = result.meta.map(m => m.c);
+	var types = result.meta.map(m => m.t);
 	var aligns = Object.values(rows[0]).map(x => (typeof x === "number" ? "." : "l"));
+
 	let opts = { align: aligns };
 
 	for (let i = 0; i < rows.length; ++i) {
 		let values = Object.values(rows[i]);
-		rows[i] = values.map(value => stringify(value));
+		rows[i] = values.map((value, j) => stringify(types[j], value));
 	}
 
 	return formatTable(headers, rows, opts);
@@ -617,7 +619,7 @@ function formatTable(headers_: any, rows_: any, opts: any) {
 		opts = {};
 	}
 
-    var hsep = opts.hsep === undefined ? '  ' : opts.hsep;
+    var hsep = opts.hsep === undefined ? ' ' : opts.hsep;
     var align = opts.align || [];
     var stringLength = opts.stringLength || function (s: any) { return String(s).length; };
     
@@ -735,9 +737,15 @@ function map(xs: any, f: any) {
 	}
 }
 
-function stringify(x: any) {
+function stringify(t: string, x: any) {
 	if (x instanceof Date) {
-		return x.toISOString();
+		return (t === "d"
+			? x.toISOString().replace(/-/g, '.').slice(0, 10)
+			: x.toISOString().replace(/-/g, '.').replace('T', 'D').replace('Z', ''));
+	}
+	else if (t === "f") {
+		// TODO: Find out if there's a more efficient way to fix floating point errors.
+		return x.toFixed(7).replace(/\.?0*$/,'');
 	}
 
 	return x.toString();
