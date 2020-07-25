@@ -12,8 +12,8 @@ let gridPanel: vscode.WebviewPanel | undefined = undefined;
 let consolePanel: vscode.OutputChannel | undefined = undefined;
 
 const constants = {
-	names: ['','boolean','guid','','byte','short','int','long','real','float','char','symbol','timestamp','month','date','datetime','timespan','minute','second','time'],
-    types: ['','b','g','','','h','i','j','e','f','c','','p','m','d','z','n','u','v','t'],
+	names: ['','boolean','guid','','byte','short','int','long','real','float','char','symbol','timestamp','month','date','datetime','timespan','minute','second','time','symbol'],
+    types: ['','b','g','','','h','i','j','e','f','c','s','p','m','d','z','n','u','v','t','s'],
     listSeparator:  [';','',' ','','',' ',' ',' ',' ',' ','','',' ',' ',' ',' ',' ',' ',' ',' '],
     listPrefix: ['(','','','','0x','','','','','','','','','','','','','','',''],
     listSuffix: [')','b','','','','h','i','','e','f','','','','m','','','','','','']
@@ -449,9 +449,11 @@ function updateConnection(conn: nodeq.Connection, options: nodeq.ConnectionParam
 function updateConnectionStatus(hostname: string): void {
 	if (hostname && hostname.length > 0) {
 		connectionStatus.text = `kdb-q: ${hostname}`;
+		connectionStatus.color = "#00f000";
 	}
 	else {
 		connectionStatus.text = "kdb-q: disconnected";
+		connectionStatus.color = "#f00000";
 	}
 }
 
@@ -584,12 +586,12 @@ function isTable(result: QueryResult): boolean {
 
 function stringifyResult(result: QueryResult) {
 	if (!result.result) {
-		return "";
+		return `'${result.data}`;
 	}
 
 	// If it's not a table, perform simple stringification.
 	if (!isTable(result)) {
-		return stringify(constants.types[result.type!], result.data);
+		return stringify(constants.types[Math.abs(result.type!)], result.data);
 	}
 
 	return stringifyTable(result.meta, result.data);
@@ -744,15 +746,42 @@ function map(xs: any, f: any) {
 	}
 }
 
-function stringify(t: string, x: any) {
-	if (x instanceof Date) {
-		return (t === "d"
-			? x.toISOString().replace(/-/g, '.').slice(0, 10)
-			: x.toISOString().replace(/-/g, '.').replace('T', 'D').replace('Z', ''));
+function stringify(t: string, x: any): string {
+	if (x instanceof Array) {
+		if (x.length === 0) {
+			return "()"; // TODO: At type in front of ()?
+		}
+
+		// TODO: Handle booleans properly.
+
+		return (x.length > 1 ? '' : ',') +
+			  t === "s" ? ('`' + x.map((y: any) => stringify(t, y)).join('`'))
+			: t === "b" ? (x.map((y: any) => stringify(t, y)).join('') + 'b')
+			: (x.map((y: any) => stringify(t, y)).join(' '));
 	}
-	else if (t === "f") {
-		// TODO: Find out if there's a more efficient way to fix floating point errors.
-		return x.toFixed(7).replace(/\.?0*$/,'');
+
+	// Below is for handling table data.
+	switch (t) {
+		case "f":
+			// TODO: Find out if there's a more efficient way to fix floating point errors.
+			return x.toFixed(7).replace(/\.?0*$/,'');
+
+		case "b":
+			return x === true ? '1' : '0';
+
+		case "d":
+			return x.toISOString().replace(/-/g, '.').slice(0, 10);
+
+		case "p":
+			return x.toISOString().replace(/-/g, '.').replace('T', 'D').replace('Z', '');
+
+		case "t":
+			return x.toISOString().slice(11, 23);
+
+		// TODO: Handle timespan, hour, minute, etc.
+
+		default:
+			break;
 	}
 
 	return x.toString();
