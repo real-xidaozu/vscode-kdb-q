@@ -53,7 +53,7 @@
 				{
 					"id": "vscode-kdb-q-explorer",
 					"name": "kdb+ explorer",
-					"icon": "media/dep.svg"
+					"icon": "resources/dep.svg"
 				}
 			]
 		}
