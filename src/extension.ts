@@ -31,7 +31,13 @@ const constants = {
     types: ['','b','g','','','h','i','j','e','f','c','s','p','m','d','z','n','u','v','t','s'],
     listSeparator:  [';','',' ','','',' ',' ',' ',' ',' ','','',' ',' ',' ',' ',' ',' ',' ',' '],
     listPrefix: ['(','','','','0x','','','','','','','','','','','','','','',''],
-    listSuffix: [')','b','','','','h','i','','e','f','','','','m','','','','','','']
+	listSuffix: [')','b','','','','h','i','','e','f','','','','m','','','','','',''],
+	
+	base: new Date(2000, 0) as any,
+	days: 1000 * 60 * 60 * 24,
+	hours: 1000 * 60 * 60,
+	minutes: 1000 * 60,
+	seconds: 1000,
 };
 
 export type MetaResult = {
@@ -67,12 +73,7 @@ export function timer() {
 // This method is called when the extension is activated.
 // The extension is activated the very first time the command is executed.
 export function activate(context: vscode.ExtensionContext) {
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "vscode-kdb-q" is now active!');
-
-	// Display a message box to the user
-	vscode.window.showInformationMessage('Hello World from vscode-kdb-q!');
+	console.log('vscode-kdb-q is now active!');
 
 	// Samples of `window.registerTreeDataProvider`
 	explorerProvider = new KdbExplorerProvider(null);
@@ -109,8 +110,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 			// Setup up connection close listener, update status bar if closed.
 			conn.addListener("close", (hadError: boolean) => {
+				// Let the user know that the remote connection was closed.
+				vscode.window.showErrorMessage(`Disconnected from ${options.host}:${options.port}!`);
+
 				updateConnectionStatus("");
 			});
+
+			// Show the user that the connected was established.
+			vscode.window.showInformationMessage(`Connected to server ${options.host}:${options.port}!`);
 
 			// Update globals upon successful connection.
 			let globalQuery = "{[q] t:system\"T\";tm:@[{$[x>0;[system\"T \",string x;1b];0b]};0;{0b}];r:$[tm;@[0;(q;::);{[tm; t; msgs] if[tm;system\"T \",string t];'msgs}[tm;t]];@[q;::;{'x}]];if[tm;system\"T \",string t];r}{do[1000;2+2];{@[{.z.ide.ns.r1:x;:.z.ide.ns.r1};x;{r:y;:r}[;x]]}({:x!{![sv[`;] each x cross `Tables`Functions`Variables; system each \"afv\" cross enlist[\" \"] cross enlist string x]} each x} [{raze x,.z.s'[{x where{@[{1#get x};x;`]~1#.q}'[x]}` sv'x,'key x]}`]),(enlist `.z)!flip (`.z.Tables`.z.Functions`.z.Variables)!(enlist 0#`;enlist `ac`bm`exit`pc`pd`pg`ph`pi`pm`po`pp`ps`pw`vs`ts`s`wc`wo`ws;enlist `a`b`e`f`h`i`k`K`l`o`q`u`w`W`x`X`n`N`p`P`z`Z`t`T`d`D`c`zd)}";
@@ -120,7 +127,6 @@ export function activate(context: vscode.ExtensionContext) {
 					return;
 				}
 
-				
 				updateGlobals(result);
 			});
 
@@ -163,7 +169,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// TODO: Make these configurable through settings.
 		// A server explorer showing all servers available in gateway is also nice.
-		var gatewayMode = true;
+		var gatewayMode = false;
 		var serverType = "hdb";
 
 		if (gatewayMode) {
@@ -224,8 +230,6 @@ function updateConnection(conn: nodeq.Connection, options: nodeq.ConnectionParam
 
 	let hostname = `${options.host}:${options.port}`;
 	updateConnectionStatus(hostname);
-
-	console.log("Connected to", hostname);
 }
 
 function updateConnectionStatus(hostname: string): void {
@@ -505,7 +509,8 @@ function formatTable(headers_: any, rows_: any, opts: any) {
             var s = Array(Math.max(n + 1, 1)).join(' ');
             if (align[ix] === 'r'/* || align[ix] === '.'*/) {
                 return s + c;
-            }
+			}
+			
             if (align[ix] === 'c') {
                 return Array(Math.ceil(n / 2 + 1)).join(' ')
                     + c + Array(Math.floor(n / 2 + 1)).join(' ')
@@ -565,13 +570,21 @@ function map(xs: any, f: any) {
 	}
 }
 
+function pad(num: number, size: number) {
+	return (num + "").padStart(size, '0');
+}
+
 function stringify(t: string, x: any): string {
+	let isObject = typeof(x) === "object";
+	if (!x && isObject) {
+		return "";
+	}
+
+	// This bit here is for vectors.
 	if (x instanceof Array) {
 		if (x.length === 0) {
-			return "()"; // TODO: At type in front of ()?
+			return "()"; // TODO: Add type in front of ()?
 		}
-
-		// TODO: Handle booleans properly.
 
 		return (x.length > 1 ? '' : ',') +
 			  t === "s" ? ('`' + x.map((y: any) => stringify(t, y)).join('`'))
@@ -579,11 +592,11 @@ function stringify(t: string, x: any): string {
 			: (x.map((y: any) => stringify(t, y)).join(' '));
 	}
 
-	// Below is for handling table data.
+	// Below is for handling tables and atoms.
 	switch (t) {
 		case "f":
 			// TODO: Find out if there's a more efficient way to fix floating point errors.
-			return x.toFixed(7).replace(/\.?0*$/,'');
+			return x.toFixed(7).replace(/\.?0*$/, '');
 
 		case "b":
 			return x === true ? '1' : '0';
@@ -597,11 +610,43 @@ function stringify(t: string, x: any): string {
 		case "t":
 			return x.toISOString().slice(11, 23);
 
-		// TODO: Handle timespan, hour, minute, etc.
+		case "n":
+			// TODO: Test whether this actually works (test larger dates, negative, etc.)
+			let milliseconds = Math.abs(x.getUTCMilliseconds());
+			let seconds = Math.abs(x.getUTCSeconds());
+			let minutes = Math.abs(x.getUTCMinutes());
+			let hours = Math.abs(x.getUTCHours());
+
+			let diffTime = Math.abs(x - constants.base);
+
+			diffTime -= (hours * constants.hours) + (minutes * constants.minutes) + (seconds * constants.seconds) + (milliseconds);
+			let days = Math.floor(diffTime / constants.days);
+
+			const nsign = x < constants.base ? '-' : '';
+			return `${nsign}${days}D${pad(hours, 2)}:${pad(minutes, 2)}:${pad(seconds, 2)}.${pad(milliseconds, 3)}`;
+
+		case "u":
+			const usign = x < constants.base ? '-' : '';
+			if (usign === '-') {
+				x = constants.base - x;
+				return `${usign}${pad(x.getUTCHours(), 2)}:${pad(x.getUTCMinutes(), 2)}`;
+			}
+
+			return `${usign}${pad(x.getMinutes(), 2)}:${pad(x.getSeconds(), 2)}`;
+
+		case "v":
+			const vsign = x < constants.base ? '-' : '';
+			if (vsign === '-') {
+				x = new Date(constants.base - x);
+				return `${vsign}${pad(x.getUTCHours(), 2)}:${pad(x.getUTCMinutes(), 2)}:${pad(x.getUTCSeconds(), 2)}`;
+			}
+
+			return `${vsign}${pad(x.getHours(), 2)}:${pad(x.getMinutes(), 2)}:${pad(x.getSeconds(), 2)}`;
 
 		default:
 			break;
 	}
 
-	return x.toString();
+	// Print nested objects as '[nested]'.
+	return isObject ? "[nested]" : x.toString();
 }
