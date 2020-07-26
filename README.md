@@ -17,6 +17,10 @@ The extension currently provides the following features:
 * Show table results in a high performance grid view
 * Explorer view exposing all functions and variables
 
+## Demonstration 
+
+![Demo](https://github.com/real-xidaozu/vscode-kdb-q/blob/master/resources/static/vscode-kdb-q-demo.gif?raw=true)
+
 ## Requirements
 
 None in particular, although kdb+ 3.6 or higher is recommended.
