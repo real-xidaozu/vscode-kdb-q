@@ -1,65 +1,46 @@
-# vscode-kdb-q README
+# vscode-kdb-q
 
-This is the README for your extension "vscode-kdb-q". After writing up a brief description, we recommend including the following sections.
+This [Visual Studio Code](https://code.visualstudio.com/) extension provides extensive features for the [kdb+/q](https://code.kx.com/q/) programming language.
+Features include syntax highlighting, auto completion, executing queries on a kdb+ server, table visualization and more.
+The extension is developed with Atom's [connect-kdb-q](https://github.com/quintanar401/connect-kdb-q) extension and [QInsightPad](http://www.qinsightpad.com/) in mind.
+Although any theme will work, the recommended theme is [Atom One Dark](https://marketplace.visualstudio.com/items?itemName=akamud.vscode-theme-onedark) for the best experience.
+
+Please note that the extension is usable in its current state, but is still under development.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+The extension currently provides the following features:
 
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+* Accurate syntax highlighting
+* Reliable code completion (based on remote server process)
+* Running kdb+ queries and output the result in a console
+* Show table results in a high performance grid view
+* Explorer view exposing all functions and variables
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+None in particular, although kdb+ 3.6 or higher is recommended.
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: enable/disable this extension
-* `myExtension.thing`: set to `blah` to do something
+Settings will be added in the near future.
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+Below is a list of known issues and incomplete features:
+
+* Console output from query results can be shown slightly different
+* The explorer view is initialized only once upon connection
+* Code completion is not supported when not connected to a kdb+ server
+* Nested objects and functions are not printed to console
+
+## License
+
+Licensed under GNU General Public License v3.0.
+See the license file for more details.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
-
 ### 1.0.0
 
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
------------------------------------------------------------------------------------------------------------
-
-## Working with Markdown
-
-**Note:** You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+CMD+V` on macOS or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux) or `Cmd+Space` (macOS) to see a list of Markdown snippets
-
-### For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Initial release of vscode-kdb-q.

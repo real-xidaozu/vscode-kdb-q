@@ -1,13 +1,38 @@
 {
+	"publisher": "xidaozu",
 	"name": "vscode-kdb-q",
 	"displayName": "vscode-kdb-q",
-	"description": "",
-	"version": "0.0.1",
+	"description": "Provides kdb+/q language features for Visual Studio Code",
+	"version": "1.0.0",
+	"icon": "resources/static/logo.png",
+	"homepage": "https://github.com/real-xidaozu/vscode-kdb-q",
+	"license": "GPL3",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/real-xidaozu/vscode-kdb-q.git"
+	},
+	"bugs": {
+		"url": "https://github.com/real-xidaozu/vscode-kdb-q/issues",
+		"email": "xidaozu@gmail.com"
+	},
 	"engines": {
 		"vscode": "^1.47.0"
 	},
+	"keywords": [
+		"kdb+",
+		"kdb",
+		"q",
+		"k",
+		"kx",
+		"time series",
+		"database"
+	],
 	"categories": [
-		"Other"
+		"Programming Languages",
+		"Debuggers",
+		"Formatters",
+		"Data Science",
+		"Visualization"
 	],
 	"activationEvents": [
 		"onLanguage:q",
