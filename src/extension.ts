@@ -4,12 +4,26 @@ import * as vscode from 'vscode';
 import * as nodeq from 'node-q';
 import * as path from 'path';
 
+import { KdbExplorerProvider } from './explorer';
+
 let connection : nodeq.Connection;
 let connectionStatus: vscode.StatusBarItem;
 
 // Track our current panels.
 let gridPanel: vscode.WebviewPanel | undefined = undefined;
 let consolePanel: vscode.OutputChannel | undefined = undefined;
+
+// Store kdb+ globals here.
+let globals: any;
+
+// Store functions, variables and tables separately.
+// This will make auto completion faster and easier.
+let functions: string[];
+let variables: string[];
+let tables: string[];
+
+// Namespace explorer view.
+let explorerProvider: KdbExplorerProvider;
 
 const constants = {
 	names: ['','boolean','guid','','byte','short','int','long','real','float','char','symbol','timestamp','month','date','datetime','timespan','minute','second','time','symbol'],
@@ -59,6 +73,10 @@ export function activate(context: vscode.ExtensionContext) {
 	// Display a message box to the user
 	vscode.window.showInformationMessage('Hello World from vscode-kdb-q!');
 
+	// Samples of `window.registerTreeDataProvider`
+	explorerProvider = new KdbExplorerProvider(null);
+	vscode.window.registerTreeDataProvider('vscode-kdb-q-explorer', explorerProvider);
+
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
@@ -91,6 +109,17 @@ export function activate(context: vscode.ExtensionContext) {
 			// Setup up connection close listener, update status bar if closed.
 			conn.addListener("close", (hadError: boolean) => {
 				updateConnectionStatus("");
+			});
+
+			let globalQuery = "{[q] t:system\"T\";tm:@[{$[x>0;[system\"T \",string x;1b];0b]};0;{0b}];r:$[tm;@[0;(q;::);{[tm; t; msgs] if[tm;system\"T \",string t];'msgs}[tm;t]];@[q;::;{'x}]];if[tm;system\"T \",string t];r}{do[1000;2+2];{@[{.z.ide.ns.r1:x;:.z.ide.ns.r1};x;{r:y;:r}[;x]]}({:x!{![sv[`;] each x cross `Tables`Functions`Variables; system each \"afv\" cross enlist[\" \"] cross enlist string x]} each x} [{raze x,.z.s'[{x where{@[{1#get x};x;`]~1#.q}'[x]}` sv'x,'key x]}`]),(enlist `.z)!flip (`.z.Tables`.z.Handlers`.z.Constants)!(enlist 0#`;enlist `ac`bm`exit`pc`pd`pg`ph`pi`pm`po`pp`ps`pw`vs`ts`s`wc`wo`ws;enlist `a`b`e`f`h`i`k`K`l`o`q`u`w`W`x`X`n`N`p`P`z`Z`t`T`d`D`c`zd)}";
+
+			conn.k(globalQuery, function(err, result) {
+				if (err) {
+					; // TODO: Report error
+				}
+
+				// Update globals.
+				updateGlobals(result);
 			});
 
 			// Close existing connection, since we established a new one successfully.
@@ -464,6 +493,12 @@ function updateConnectionStatus(hostname: string): void {
 		connectionStatus.text = "kdb-q: disconnected";
 		connectionStatus.color = "#f00000";
 	}
+}
+
+function updateGlobals(result: any): void {
+	globals = result;
+
+	explorerProvider.refresh(result);
 }
 
 function showConsole(context: vscode.ExtensionContext, query: string, result: QueryResult) {

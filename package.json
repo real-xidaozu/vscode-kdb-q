@@ -12,7 +12,8 @@
 	"activationEvents": [
 		"onLanguage:q",
 		"onCommand:vscode-kdb-q.connectToServer",
-		"onCommand:vscode-kdb-q.runSelectionQuery"
+		"onCommand:vscode-kdb-q.runSelectionQuery",
+		"onView:vscode-kdb-q-explorer"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -26,27 +27,36 @@
 				"title": "kdb-q: Run selection as query"
 			}
 		],
-        "languages": [
-            {
-                "id": "q",
-                "aliases": [
-                    "q",
-                    "q"
-                ],
-                "extensions": [
+		"languages": [
+			{
+				"id": "q",
+				"aliases": [
+					"q",
+					"q"
+				],
+				"extensions": [
 					".q",
 					".k"
-                ],
-                "configuration": "./grammars/vscode-kdb-q-config.json"
-            }
-        ],
-        "grammars": [
-            {
-                "language": "q",
-                "scopeName": "source.q",
-                "path": "./grammars/vscode-kdb-q.json"
-            }
-        ]
+				],
+				"configuration": "./grammars/vscode-kdb-q-config.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "q",
+				"scopeName": "source.q",
+				"path": "./grammars/vscode-kdb-q.json"
+			}
+		],
+		"views": {
+			"explorer": [
+				{
+					"id": "vscode-kdb-q-explorer",
+					"name": "kdb+ explorer",
+					"icon": "media/dep.svg"
+				}
+			]
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
