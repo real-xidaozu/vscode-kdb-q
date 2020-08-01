@@ -3,7 +3,7 @@
 	"name": "vscode-kdb-q",
 	"displayName": "vscode-kdb-q",
 	"description": "Provides kdb+/q language features for Visual Studio Code",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"icon": "resources/static/logo.png",
 	"homepage": "https://github.com/real-xidaozu/vscode-kdb-q",
 	"license": "GPL3",
@@ -38,6 +38,7 @@
 		"onLanguage:q",
 		"onCommand:vscode-kdb-q.connectToServer",
 		"onCommand:vscode-kdb-q.runSelectionQuery",
+		"onCommand:vscode-kdb-q.runLineQuery",
 		"onView:vscode-kdb-q-explorer"
 	],
 	"main": "./out/extension.js",
@@ -49,9 +50,33 @@
 			},
 			{
 				"command": "vscode-kdb-q.runSelectionQuery",
-				"title": "kdb-q: Run selection as query"
+				"title": "kdb-q: Run selection as query",
+				"enablement": "editorTextFocus && editorHasSelection"
+			},
+			{
+				"command": "vscode-kdb-q.runLineQuery",
+				"title": "kdb-q: Run current line as query",
+				"enablement": "editorTextFocus",
+				"key": "ctrl+enter"
 			}
 		],
+        "keybindings": [
+            {
+                "command": "vscode-kdb-q.connectToServer",
+                "key": "shift+ctrl+e",
+                "mac": "shift+cmd+e"
+            },
+            {
+                "command": "vscode-kdb-q.runSelectionQuery",
+                "key": "ctrl+e",
+                "mac": "cmd+e"
+            },
+            {
+                "command": "vscode-kdb-q.runLineQuery",
+                "key": "ctrl+enter",
+                "mac": "cmd+enter"
+            }
+        ],
 		"languages": [
 			{
 				"id": "q",

@@ -164,32 +164,21 @@ export function activate(context: vscode.ExtensionContext) {
 		var selection = editor.selection;
 		var query = editor.document.getText(selection);
 
-		// Wrap the query result, make sure the query is executed in global scope.
-		var wrapped = '{ x:$[not 99h = t:type x; x; 98h = type key x; 0!x; enlist x]; `result`type`meta`data!(1b; t; $[t in 98 99h; 0!meta x; ()]; x) }[' + query +']';
+		runQuery(context, query);
+	});
 
-		// TODO: Make these configurable through settings.
-		// A server explorer showing all servers available in gateway is also nice.
-		var gatewayMode = false;
-		var serverType = "hdb";
-
-		if (gatewayMode) {
-			// Wrap the result in a gateway call, make sure to escape double quotes.
-			wrapped = '.gw.syncexec["' + wrapped.replace(/"/g, '\\"') + '"; `' + serverType +']';
+	let runLineQuery = vscode.commands.registerCommand('vscode-kdb-q.runLineQuery', () => {
+		// Get the editor, do nothing if no editor was open.
+		var editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			return;
 		}
+		
+		// Get current line.
+		var lineNumber = editor.selection.active.line;
+		const line = editor.document.lineAt(lineNumber);
 
-		// Flush query through connection and print result.
-		connection.k(wrapped, function(err, result: QueryResult) {
-			if (err) {
-				result = { result: false, type: 11, meta: [], data: err.message };
-			}
-
-			// Stringify result, since we'LL be outputting this somewhere anyway.
-			result.data = stringifyResult(result);
-
-			// Show in grid and console.
-			showGrid(context, result);
-			showConsole(context, query, result);
-		});
+		runQuery(context, line.text);
 	});
 
 	context.subscriptions.push(connectToServer);
@@ -221,6 +210,35 @@ export function activate(context: vscode.ExtensionContext) {
 // This method is called when the extension is deactivated.
 export function deactivate() {
 	connection?.close();
+}
+
+function runQuery(context: vscode.ExtensionContext, query: string) {
+	// Wrap the query result, make sure the query is executed in global scope.
+	var wrapped = '{ x:$[not 99h = t:type x; x; 98h = type key x; 0!x; enlist x]; `result`type`meta`data!(1b; t; $[t in 98 99h; 0!meta x; ()]; x) }[' + query +']';
+
+	// TODO: Make these configurable through settings.
+	// A server explorer showing all servers available in gateway is also nice.
+	var gatewayMode = false;
+	var serverType = "hdb";
+
+	if (gatewayMode) {
+		// Wrap the result in a gateway call, make sure to escape double quotes.
+		wrapped = '.gw.syncexec["' + wrapped.replace(/"/g, '\\"') + '"; `' + serverType +']';
+	}
+
+	// Flush query through connection and print result.
+	connection.k(wrapped, function(err, result: QueryResult) {
+		if (err) {
+			result = { result: false, type: 11, meta: [], data: err.message };
+		}
+
+		// Stringify result, since we'LL be outputting this somewhere anyway.
+		result.data = stringifyResult(result);
+
+		// Show in grid and console.
+		showGrid(context, result);
+		showConsole(context, query, result);
+	});
 }
 
 function updateConnection(conn: nodeq.Connection, options: nodeq.ConnectionParameters): void {
