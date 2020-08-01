@@ -56,15 +56,18 @@
 			{
 				"command": "vscode-kdb-q.runLineQuery",
 				"title": "kdb-q: Run current line as query",
-				"enablement": "editorTextFocus",
-				"key": "ctrl+enter"
+				"enablement": "editorTextFocus"
+			},
+			{
+				"command": "vscode-kdb-q.runExplorerQuery",
+				"title": "kdb-q: Run explorer item as query"
 			}
 		],
 		"keybindings": [
 			{
 				"command": "vscode-kdb-q.connectToServer",
-				"key": "shift+ctrl+e",
-				"mac": "shift+cmd+e"
+				"key": "ctrl+q",
+				"mac": "cmd+q"
 			},
 			{
 				"command": "vscode-kdb-q.runSelectionQuery",
