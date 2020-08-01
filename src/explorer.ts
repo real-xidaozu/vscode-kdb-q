@@ -34,7 +34,7 @@ export class KdbExplorerProvider implements vscode.TreeDataProvider<KdbExplorerN
 	}
 
 	private getChildElements(parent: KdbExplorerNode): KdbExplorerNode[] {
-		let isRoot = parent.namespace === "";
+		let isRoot = parent.namespace === "" && parent.collapsibleState === vscode.TreeItemCollapsibleState.None;
 
 		const createNode = (key: string, value: any): KdbExplorerNode => {
 			let namespace: string = (isRoot ? key : parent.namespace);
@@ -43,14 +43,20 @@ export class KdbExplorerProvider implements vscode.TreeDataProvider<KdbExplorerN
 			let isEmptyParent = Object.keys(value).length === 0;
 
 			let label = (isLeaf)
-				? `${namespace}.${value}`
+				? `${namespace.length > 0 ? (namespace + '.') : ''}${value}`
 				: key.replace(`${namespace}.`, "");
 
 			let state = (isLeaf || isEmptyParent)
 				? vscode.TreeItemCollapsibleState.None
 				: vscode.TreeItemCollapsibleState.Collapsed;
 
-			return new KdbExplorerNode(value, label, namespace, state);
+			let command = !isLeaf ? undefined : {
+				command: 'vscode-kdb-q.runExplorerQuery',
+				title: '',
+				arguments: [label]
+			};
+
+			return new KdbExplorerNode(value, label, namespace, state, command);
 		};
 
 		return Object.entries(parent.object).map(([key, value]) => createNode(key !== "null" ? key : "", value));
@@ -63,7 +69,8 @@ export class KdbExplorerNode extends vscode.TreeItem {
 		public readonly object: any,
 		public readonly label: string,
 		public readonly namespace: string,
-		public readonly collapsibleState: vscode.TreeItemCollapsibleState
+		public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+		public readonly command?: vscode.Command
 	) {
 		super(label, collapsibleState);
 	}

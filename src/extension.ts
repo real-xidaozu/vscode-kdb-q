@@ -27,6 +27,9 @@ let keywords: string[] = [];
 // Namespace explorer view.
 let explorerProvider: KdbExplorerProvider;
 
+// The last clicked explorer item.
+let lastExplorerItem: { query:string, time:number };
+
 const constants = {
 	names: ['','boolean','guid','','byte','short','int','long','real','float','char','symbol','timestamp','month','date','datetime','timespan','minute','second','time','symbol'],
     types: ['','b','g','','','h','i','j','e','f','c','s','p','m','d','z','n','u','v','t','s'],
@@ -143,6 +146,7 @@ export function activate(context: vscode.ExtensionContext) {
 					vscode.window.showErrorMessage(`Failed to retrieve kdb+ reserved keywords: '${err.message}`);
 					return;
 				}
+
 				keywords = result;
 			});
 
@@ -158,37 +162,46 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	});
 
-	let runSelectionQuery = vscode.commands.registerCommand('vscode-kdb-q.runSelectionQuery', () => {
-		// Get the editor, do nothing if no editor was open.
-		var editor = vscode.window.activeTextEditor;
-		if (!editor) {
-			return;
-		}
-		
+	let runSelectionQuery = vscode.commands.registerTextEditorCommand('vscode-kdb-q.runSelectionQuery',
+		(editor: vscode.TextEditor, edit: vscode.TextEditorEdit) =>
+	{
 		// Get the selected text.
 		// TODO: Support multiple selections?
-		var selection = editor.selection;
-		var query = editor.document.getText(selection);
+		const selection = editor.selection;
+		const query = editor.document.getText(selection);
 
-		runQuery(context, query);
+		executeQuery(context, query);
 	});
 
-	let runLineQuery = vscode.commands.registerCommand('vscode-kdb-q.runLineQuery', () => {
-		// Get the editor, do nothing if no editor was open.
-		var editor = vscode.window.activeTextEditor;
-		if (!editor) {
-			return;
-		}
-		
+	let runLineQuery = vscode.commands.registerTextEditorCommand('vscode-kdb-q.runLineQuery',
+		(editor: vscode.TextEditor, edit: vscode.TextEditorEdit) =>
+	{
 		// Get current line.
-		var lineNumber = editor.selection.active.line;
+		const lineNumber = editor.selection.active.line;
 		const line = editor.document.lineAt(lineNumber);
 
-		runQuery(context, line.text);
+		executeQuery(context, line.text);
+	});
+
+	let runQuery = vscode.commands.registerCommand('vscode-kdb-q.runExplorerQuery', (...args: any[]) => {
+		if (!args || args.length === 0) {
+			return;
+		}
+
+		let currentTime = Date.now();
+		let doubleClickTime = 500;
+
+		/*if (lastExplorerItem && lastExplorerItem.query === args[0] && (currentTime - lastExplorerItem.time) >= doubleClickTime)*/ {
+			executeQuery(context, args[0]);
+		}
+
+		lastExplorerItem = {query: args[0], time: currentTime};
 	});
 
 	context.subscriptions.push(connectToServer);
 	context.subscriptions.push(runSelectionQuery);
+	context.subscriptions.push(runLineQuery);
+	context.subscriptions.push(runQuery);
 
 	// create a new status bar item that we can now manage
 	connectionStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -244,7 +257,7 @@ export function deactivate() {
 	connection?.close();
 }
 
-function runQuery(context: vscode.ExtensionContext, query: string) {
+function executeQuery(context: vscode.ExtensionContext, query: string) {
 	// Wrap the query result, make sure the query is executed in global scope.
 	var wrapped = '{ x:$[not 99h = t:type x; x; 98h = type key x; 0!x; enlist x]; `result`type`meta`data!(1b; t; $[t in 98 99h; 0!meta x; ()]; x) }[' + query +']';
 
@@ -512,7 +525,7 @@ function showGrid(context: vscode.ExtensionContext, result: QueryResult): void {
 }
 
 function isTable(result: QueryResult): boolean {
-	if (!result.result || !result.meta || result.meta.length === 0 || result.data.length === 0) {
+	if (!result.result || !result.meta || result.meta.length === 0/* || result.data.length === 0*/) {
 		return false;
 	}
 
