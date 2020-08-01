@@ -60,23 +60,23 @@
 				"key": "ctrl+enter"
 			}
 		],
-        "keybindings": [
-            {
-                "command": "vscode-kdb-q.connectToServer",
-                "key": "shift+ctrl+e",
-                "mac": "shift+cmd+e"
-            },
-            {
-                "command": "vscode-kdb-q.runSelectionQuery",
-                "key": "ctrl+e",
-                "mac": "cmd+e"
-            },
-            {
-                "command": "vscode-kdb-q.runLineQuery",
-                "key": "ctrl+enter",
-                "mac": "cmd+enter"
-            }
-        ],
+		"keybindings": [
+			{
+				"command": "vscode-kdb-q.connectToServer",
+				"key": "shift+ctrl+e",
+				"mac": "shift+cmd+e"
+			},
+			{
+				"command": "vscode-kdb-q.runSelectionQuery",
+				"key": "ctrl+e",
+				"mac": "cmd+e"
+			},
+			{
+				"command": "vscode-kdb-q.runLineQuery",
+				"key": "ctrl+enter",
+				"mac": "cmd+enter"
+			}
+		],
 		"languages": [
 			{
 				"id": "q",
@@ -117,16 +117,16 @@
 		"test": "node ./out/test/runTest.js"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.47.0",
 		"@types/glob": "^7.1.1",
-		"@types/mocha": "^7.0.2",
-		"@types/node": "^13.11.0",
-		"eslint": "^6.8.0",
-		"@typescript-eslint/parser": "^2.30.0",
-		"@typescript-eslint/eslint-plugin": "^2.30.0",
+		"@types/mocha": "^8.0.1",
+		"@types/node": "^14.0.27",
+		"@types/vscode": "^1.47.0",
+		"@typescript-eslint/eslint-plugin": "^3.7.1",
+		"@typescript-eslint/parser": "^3.7.1",
+		"eslint": "^7.6.0",
 		"glob": "^7.1.6",
-		"mocha": "^7.1.2",
-		"typescript": "^3.8.3",
+		"mocha": "^8.1.0",
+		"typescript": "^3.9.7",
 		"vscode-test": "^1.3.0"
 	},
 	"dependencies": {
