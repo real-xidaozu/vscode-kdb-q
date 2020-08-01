@@ -361,10 +361,10 @@ function showGrid(context: vscode.ExtensionContext, result: QueryResult): void {
 	// Function to get ag-grid column type.
 	let getColumnType = (t: string) => {
 		switch (t) {
-			case "f": case "i": case "j": case "h": return 'numberColumn';
-			case "c": case "s": case "S": case "C": return 'textColumn';
-			case "d": case "p":                     return 'dateColumn';
-			default:                                break;
+			case "f": case "e": case "i": case "j": case "h": case "b": return 'numberColumn';
+			case "c": case "s": case "S": case "C":                     return 'textColumn';
+			case "d": case "p":                                         return 'dateColumn';
+			default:                                                    break;
 		}
 
 		return false;
@@ -380,9 +380,14 @@ function showGrid(context: vscode.ExtensionContext, result: QueryResult): void {
 		let t = result.meta[i].t;
 		let c = result.meta[i].c;
 
-		if (t === "f" || t === "i" || t ===  "j" || t ===  "h") {
+		if (t === "f" || t === "e") {
 			for (let j = 0; j < result.data.length; ++j) {
 				result.data[j][c] = parseFloat(result.data[j][c]);
+			}
+		}
+		else if (t === "i" || t ===  "j" || t ===  "h" || t === "b") {
+			for (let j = 0; j < result.data.length; ++j) {
+				result.data[j][c] = parseInt(result.data[j][c]);
 			}
 		}
 	}
@@ -716,7 +721,7 @@ function stringify(t: string, x: any): string {
 			// When converting down to nanoseconds, precision errors occur very frequently.
 			const pbase = Math.floor(x / 1000000);
 			const prem = Math.round((x - (pbase * 1000000)) / 1000);
-			return moment(pbase).format("YYYY.MM.DDTHH:mm:ss.SSS").replace('T', 'D') + pad(prem, 3);
+			return moment.utc(pbase).format("YYYY.MM.DDTHH:mm:ss.SSS").replace('T', 'D') + pad(prem, 3);
 			// return x.toISOString().replace(/-/g, '.').replace('T', 'D').replace('Z', '');
 
 		case "n":
