@@ -268,8 +268,8 @@ function runQuery(context: vscode.ExtensionContext, query: string) {
 		result.data = stringifyResult(result);
 
 		// Show in grid and console.
-		showGrid(context, result);
 		showConsole(context, query, result);
+		showGrid(context, result);
 	});
 }
 
@@ -358,9 +358,34 @@ function showGrid(context: vscode.ExtensionContext, result: QueryResult): void {
 		return;
 	}
 
-	let columnDefinitions = result.meta.map(m => {
-		return { headerName: m.c, field: m.c, type: m.t };
+	// Function to get ag-grid column type.
+	let getColumnType = (t: string) => {
+		switch (t) {
+			case "f": case "i": case "j": case "h": return 'numberColumn';
+			case "c": case "s": case "S": case "C": return 'textColumn';
+			case "d": case "p":                     return 'dateColumn';
+			default:                                break;
+		}
+
+		return false;
+	};
+
+	// Create column definitions for ag-grid.
+	var columnDefinitions = result.meta.map(m => {
+		return { headerName: m.c, field: m.c, type: getColumnType(m.t) };
 	});
+
+	// This is stupid but convert strings back to numbers if possible.
+	for (let i = 0; i < result.meta.length; ++i) {
+		let t = result.meta[i].t;
+		let c = result.meta[i].c;
+
+		if (t === "f" || t === "i" || t ===  "j" || t ===  "h") {
+			for (let j = 0; j < result.data.length; ++j) {
+				result.data[j][c] = parseFloat(result.data[j][c]);
+			}
+		}
+	}
 
 	// Always show in side panel.
 	const columnToShowIn = vscode.ViewColumn.Beside;
@@ -396,6 +421,38 @@ function showGrid(context: vscode.ExtensionContext, result: QueryResult): void {
 						resizable: true,
 						filter: true,
 						sortable: true
+					},
+					columnTypes: {
+						textColumn: { filter: 'agTextColumnFilter' },
+						numberColumn: { filter: 'agNumberColumnFilter' },
+						dateColumn: {
+						  	// specify we want to use the date filter
+						  	filter: 'agDateColumnFilter',
+					
+						  	// add extra parameters for the date filter
+						  	filterParams: {
+								// provide comparator function
+								comparator: function(filterLocalDateAtMidnight, cellValue) {
+							  		// We create a Date object for comparison against the filter date
+							  		var dateParts = cellValue.substring(0, 10).split('.');
+							  		var year = Number(dateParts[0]);
+							  		var month = Number(dateParts[1]) - 1;
+							  		var day = Number(dateParts[2]);
+							  		var cellDate = new Date(year, month, day);
+					
+							  		// Now that both parameters are Date objects, we can compare
+							  		if (cellDate < filterLocalDateAtMidnight) {
+										return -1;
+									}
+									else if (cellDate > filterLocalDateAtMidnight) {
+										return 1;
+									}
+									else {
+										return 0;
+							  		}
+								},
+						  	},
+						},
 					}
 				};
 
