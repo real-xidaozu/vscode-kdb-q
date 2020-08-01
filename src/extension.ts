@@ -5,6 +5,7 @@ import * as nodeq from 'node-q';
 import * as path from 'path';
 
 import { KdbExplorerProvider } from './explorer';
+import * as moment from '../libs/momentjs/moment';
 
 let connection : nodeq.Connection;
 let connectionStatus: vscode.StatusBarItem;
@@ -95,8 +96,13 @@ export function activate(context: vscode.ExtensionContext) {
 			throw new Error("Failed to parse input");
 		}
 
+		// Default connection options.
+		let options : nodeq.ConnectionParameters = {
+			nanos2date: false,
+			socketNoDelay: true,
+		};
+
 		// Parse parameters.
-		let options : nodeq.ConnectionParameters = {};
 		if (params.length > 0) { options.host = params[0]; }
 		if (params.length > 1) { options.port = +params[1]; }
 		if (params.length > 2) { options.user = params[2]; }
@@ -649,25 +655,41 @@ function stringify(t: string, x: any): string {
 			return x.toISOString().replace(/-/g, '.').slice(0, 10);
 
 		case "p":
-			return x.toISOString().replace(/-/g, '.').replace('T', 'D').replace('Z', '');
+			// The most we can do is micro second precision I guess...
+			// When converting down to nanoseconds, precision errors occur very frequently.
+			const pbase = Math.floor(x / 1000000);
+			const prem = Math.round((x - (pbase * 1000000)) / 1000);
+			return moment(pbase).format("YYYY.MM.DDTHH:mm:ss.SSS").replace('T', 'D') + pad(prem, 3);
+			// return x.toISOString().replace(/-/g, '.').replace('T', 'D').replace('Z', '');
+
+		case "n":
+			const duration = moment.duration(Math.floor(Math.abs(x / 1000000)));
+			const nsign = x < 0 ? '-' : '';
+			
+			const fractional = pad(Math.abs(x % 1000000000), 9);
+
+			const seconds = Math.abs(duration.seconds());
+			const minutes = Math.abs(duration.minutes());
+			const hours = Math.abs(duration.hours());
+			const days = Math.floor(Math.abs(duration.asDays()));
+
+			return `${nsign}${days}D${pad(hours, 2)}:${pad(minutes, 2)}:${pad(seconds, 2)}.${fractional}`;
+			// // TODO: Test whether this actually works (test larger dates, negative, etc.)
+			// let milliseconds = Math.abs(x.getUTCMilliseconds());
+			// let seconds = Math.abs(x.getUTCSeconds());
+			// let minutes = Math.abs(x.getUTCMinutes());
+			// let hours = Math.abs(x.getUTCHours());
+
+			// let diffTime = Math.abs(x - constants.base);
+
+			// diffTime -= (hours * constants.hours) + (minutes * constants.minutes) + (seconds * constants.seconds) + (milliseconds);
+			// let days = Math.floor(diffTime / constants.days);
+
+			// const nsign = x < constants.base ? '-' : '';
+			// return `${nsign}${days}D${pad(hours, 2)}:${pad(minutes, 2)}:${pad(seconds, 2)}.${pad(milliseconds, 3)}`;
 
 		case "t":
 			return x.toISOString().slice(11, 23);
-
-		case "n":
-			// TODO: Test whether this actually works (test larger dates, negative, etc.)
-			let milliseconds = Math.abs(x.getUTCMilliseconds());
-			let seconds = Math.abs(x.getUTCSeconds());
-			let minutes = Math.abs(x.getUTCMinutes());
-			let hours = Math.abs(x.getUTCHours());
-
-			let diffTime = Math.abs(x - constants.base);
-
-			diffTime -= (hours * constants.hours) + (minutes * constants.minutes) + (seconds * constants.seconds) + (milliseconds);
-			let days = Math.floor(diffTime / constants.days);
-
-			const nsign = x < constants.base ? '-' : '';
-			return `${nsign}${days}D${pad(hours, 2)}:${pad(minutes, 2)}:${pad(seconds, 2)}.${pad(milliseconds, 3)}`;
 
 		case "u":
 			const usign = x < constants.base ? '-' : '';
