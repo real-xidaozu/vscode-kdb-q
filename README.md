@@ -28,13 +28,13 @@ VS Code 1.47.0 is required and kdb+ 3.6 or higher is recommended.
 
 ## Extension Settings
 
-| Name                                | Default    | Description                                                                      |
-| ------------------------------------| ---------- | -------------------------------------------------------------------------------- |
-| `vscode-kdb-q.consoleViewEnabled`   | `false`    | Whether query results should be printed to the kdb-q console                     |
-| `vscode-kdb-q.gridViewEnabled`      | `true`     | Whether table query results should be printed to the grid view                   |
-| `vscode-kdb-q.documentViewEnabled`  | `true`     | Whether query results should be printed to a syntax highlighted virtual document |
-| `vscode-kdb-q.gridViewPosition`     | `Two`      | The view column used show the grid view                                          |
-| `vscode-kdb-q.documentViewPosition` | `Grid`     | The view column used show the document view                                      |
+| Name                                | Default    | Description                                              |
+| ------------------------------------| ---------- | -------------------------------------------------------- |
+| `vscode-kdb-q.consoleViewEnabled`   | `false`    | Whether results should be printed to the kdb-q console   |
+| `vscode-kdb-q.gridViewEnabled`      | `true`     | Whether table results should be printed to the grid view |
+| `vscode-kdb-q.documentViewEnabled`  | `true`     | Whether results should be printed to a virtual document  |
+| `vscode-kdb-q.gridViewPosition`     | `Two`      | The view column used show the grid view                  |
+| `vscode-kdb-q.documentViewPosition` | `Grid`     | The view column used show the document view              |
 
 ## Keyboard Shortcuts
 
