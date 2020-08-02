@@ -1,6 +1,6 @@
 # vscode-kdb-q
 
-This [Visual Studio Code](https://code.visualstudio.com/) extension provides extensive features for the [kdb+/q](https://code.kx.com/q/) programming language.
+This [Visual Studio Code extension](https://marketplace.visualstudio.com/items?itemName=xidaozu.vscode-kdb-q) provides extensive features for the [kdb+/q](https://code.kx.com/q/) programming language.
 Features include syntax highlighting, auto completion, executing queries on a kdb+ server, table visualization and more.
 The extension is developed with Atom's [connect-kdb-q](https://github.com/quintanar401/connect-kdb-q) extension and [QInsightPad](http://www.qinsightpad.com/) in mind.
 Although any theme will work, the recommended theme is [Atom One Dark](https://marketplace.visualstudio.com/items?itemName=akamud.vscode-theme-onedark) for the best experience.
@@ -13,15 +13,16 @@ The extension currently provides the following features:
 
 * Accurate syntax highlighting
 * Reliable code completion (based on remote server process)
-* Running kdb+ queries and output the result in a console
-* Show table results in a high performance grid view
-* Syntax highlighted document view for query results
+* Running kdb+ queries and output the result to multiple views
+  * Syntax highlighted document view for query results
+  * High performance grid view for table results
+  * Console view supporting even the largest table sizes 
 * Explorer view exposing all functions and variables
 * Server view configurable per workspace (settings.json)
 
 ## Demonstration 
 
-![Demo](https://github.com/real-xidaozu/vscode-kdb-q/blob/master/resources/static/vscode-kdb-q-demo.gif?raw=true)
+![Demo](https://real-xidaozu.github.io/img/static/vscode-kdb-q-demo.gif)
 
 ## Requirements
 
