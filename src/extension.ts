@@ -5,6 +5,7 @@ import * as nodeq from 'node-q';
 import * as path from 'path';
 
 import { KdbExplorerProvider } from './explorer';
+import { KdbServerProvider } from './servers';
 import * as moment from '../libs/momentjs/moment';
 
 let connection : nodeq.Connection;
@@ -24,6 +25,9 @@ let functions: string[] = [];
 let variables: string[] = [];
 let tables: string[] = [];
 let keywords: string[] = [];
+
+// Server view.
+let serverProvider: KdbServerProvider;
 
 // Namespace explorer view.
 let explorerProvider: KdbExplorerProvider;
@@ -84,6 +88,12 @@ export function timer() {
 export function activate(context: vscode.ExtensionContext) {
     console.log('vscode-kdb-q is now active!');
 
+    const servers: string[] = vscode.workspace.getConfiguration().get("vscode-kdb-q.serverList") || [];
+
+    // Samples of `window.registerTreeDataProvider`
+    serverProvider = new KdbServerProvider(servers);
+    vscode.window.registerTreeDataProvider('vscode-kdb-q-servers', serverProvider);
+
     // Samples of `window.registerTreeDataProvider`
     explorerProvider = new KdbExplorerProvider(null);
     vscode.window.registerTreeDataProvider('vscode-kdb-q-explorer', explorerProvider);
@@ -116,15 +126,19 @@ export function activate(context: vscode.ExtensionContext) {
     // The command has been defined in the package.json file
     // Now provide the implementation of the command with registerCommand
     // The commandId parameter must match the command field in package.json
-    let connectToServer = vscode.commands.registerCommand('vscode-kdb-q.connectToServer', async () => {
-        // The code you place here will be executed every time your command is executed
-        const input = await vscode.window.showInputBox({ prompt: "Please enter kdb+ connection string: "});
-        if (!input) {
-            return;
+    let connectToServer = vscode.commands.registerCommand('vscode-kdb-q.connectToServer', async (...args: any[]) => {
+        if (args.length === 0) {
+            // The code you place here will be executed every time your command is executed
+            const input = await vscode.window.showInputBox({ prompt: "Please enter kdb+ connection string: "});
+            if (!input) {
+                return;
+            }
+
+            args[0] = input;
         }
 
         // kdb+ connection strings are split by colons.
-        const params = input.split(":");
+        const params = args[0].split(":");
         if (!params) {
             throw new Error("Failed to parse input");
         }

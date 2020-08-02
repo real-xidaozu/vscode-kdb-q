@@ -39,7 +39,8 @@
 		"onCommand:vscode-kdb-q.connectToServer",
 		"onCommand:vscode-kdb-q.runSelectionQuery",
 		"onCommand:vscode-kdb-q.runLineQuery",
-		"onView:vscode-kdb-q-explorer"
+		"onView:vscode-kdb-q-explorer",
+		"onView:vscode-kdb-q-servers"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -85,7 +86,7 @@
 				"id": "q",
 				"aliases": [
 					"q",
-					"q"
+					"k"
 				],
 				"extensions": [
 					".q",
@@ -106,6 +107,11 @@
 				{
 					"id": "vscode-kdb-q-explorer",
 					"name": "kdb+ explorer",
+					"icon": "resources/dep.svg"
+				},
+				{
+					"id": "vscode-kdb-q-servers",
+					"name": "kdb+ servers",
 					"icon": "resources/dep.svg"
 				}
 			]
@@ -166,6 +172,21 @@
 					"The panel of the ninth editor"
 				],
 				"description": "Document view: The view column used show the document view."
+			  },
+			  "vscode-kdb-q.serverList": {
+				"type": "array",
+				"default": [],
+				"description": "Servers: List of preset kdb+ servers."
+			  },
+			  "vscode-kdb-q.serverGroupMode": {
+				"type": "string",
+				"default": "Hostname",
+				"enum": ["None", "Hostname"],
+				"enumDescriptions": [
+					"Disables server grouping",
+					"Groups the servers by hostname"
+				],
+				"description": "Servers: The group mode for the server list."
 			  }
 			}
 		  }
