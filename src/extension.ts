@@ -314,10 +314,18 @@ function executeQuery(context: vscode.ExtensionContext, query: string) {
 		// Store into global last result.
 		lastResult = result;
 
-		// Show in grid and console.
-		showConsole(context, query, result);
-		showResult(context, query, result);
-		showGrid(context, result);
+		const config = vscode.workspace.getConfiguration();
+		if (config.get("vscode-kdb-q.consoleViewEnabled")) {
+			showConsole(context, query, result);
+		}
+
+		if (config.get("vscode-kdb-q.gridViewEnabled")) {
+			showGrid(context, result);
+		}
+
+		if (config.get("vscode-kdb-q.documentViewEnabled")) {
+			showResult(context, query, result);
+		}
 	});
 }
 
@@ -382,6 +390,11 @@ function showResult(context: vscode.ExtensionContext, query: string, result: Que
 	let title = "KDB+ Query Result\n" + query.substring(0, 40);
 	let uri = vscode.Uri.parse('vscode-kdb-q:' + title);
 
+	let position: string | undefined = vscode.workspace.getConfiguration().get("vscode-kdb-q.documentViewPosition");
+	let columnToShowIn = position === "Grid"
+		? (gridPanel?.viewColumn || (<any>vscode.ViewColumn)[position!])
+		: (<any>vscode.ViewColumn)[position!];
+
 	vscode.workspace.openTextDocument(uri)
 	.then((document: vscode.TextDocument) => {
 		vscode.languages.setTextDocumentLanguage(document, "q");
@@ -389,7 +402,7 @@ function showResult(context: vscode.ExtensionContext, query: string, result: Que
 		vscode.window.showTextDocument(document, {
 			preview: true,
 			preserveFocus: true,
-			viewColumn: vscode.ViewColumn.Beside,
+			viewColumn: columnToShowIn,
 		}).then(editor => {
 			resultPanel = editor;
 		});
@@ -460,8 +473,8 @@ function showGrid(context: vscode.ExtensionContext, result: QueryResult): void {
 		}
 	}
 
-	// Always show in side panel.
-	const columnToShowIn = vscode.ViewColumn.Beside;
+	const position: string | undefined = vscode.workspace.getConfiguration().get("vscode-kdb-q.gridViewPosition");
+	const columnToShowIn: vscode.ViewColumn = (<any>vscode.ViewColumn)[position!];
 
 	if (gridPanel) {
 		// If we already have a panel, show it in the target column

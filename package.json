@@ -109,7 +109,66 @@
 					"icon": "resources/dep.svg"
 				}
 			]
-		}
+		},
+		"configuration": {
+			"title": "vscode-kdb-q",
+			"properties": {
+			  "vscode-kdb-q.consoleViewEnabled": {
+				"type": "boolean",
+				"default": false,
+				"description": "Console view: Whether query results should be printed to the kdb-q console."
+			  },
+			  "vscode-kdb-q.gridViewEnabled": {
+				"type": "boolean",
+				"default": true,
+				"description": "Grid view: Whether table query results should be printed to the grid view."
+			  },
+			  "vscode-kdb-q.documentViewEnabled": {
+				"type": "boolean",
+				"default": true,
+				"description": "Document view: Whether query results should be printed to a syntax highlighted virtual document."
+			  },
+			  "vscode-kdb-q.gridViewPosition": {
+				"type": "string",
+				"default": "Two",
+				"enum": ["Active", "Beside", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"],
+				"enumDescriptions": [
+					"The panel of current active editor",
+					"The panel beside the current active editor",
+					"The panel of the first editor",
+					"The panel of the second editor",
+					"The panel of the third editor",
+					"The panel of the fourth editor",
+					"The panel of the fifth editor",
+					"The panel of the sixth editor",
+					"The panel of the seventh editor",
+					"The panel of the eight editor",
+					"The panel of the ninth editor"
+				],
+				"description": "Grid view: The view column used show the grid view."
+			  },
+			  "vscode-kdb-q.documentViewPosition": {
+				"type": "string",
+				"default": "Two",
+				"enum": ["Grid", "Active", "Beside", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"],
+				"enumDescriptions": [
+					"The panel of grid result view",
+					"The panel of current active editor",
+					"The panel beside the current active editor",
+					"The panel of the first editor",
+					"The panel of the second editor",
+					"The panel of the third editor",
+					"The panel of the fourth editor",
+					"The panel of the fifth editor",
+					"The panel of the sixth editor",
+					"The panel of the seventh editor",
+					"The panel of the eight editor",
+					"The panel of the ninth editor"
+				],
+				"description": "Document view: The view column used show the document view."
+			  }
+			}
+		  }
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
