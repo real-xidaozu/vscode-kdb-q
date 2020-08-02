@@ -13,6 +13,7 @@ let connectionStatus: vscode.StatusBarItem;
 // Track our current panels.
 let gridPanel: vscode.WebviewPanel | undefined = undefined;
 let consolePanel: vscode.OutputChannel | undefined = undefined;
+let resultPanel: vscode.TextEditor | undefined = undefined;
 
 // Store kdb+ globals here.
 let globals: any;
@@ -29,6 +30,10 @@ let explorerProvider: KdbExplorerProvider;
 
 // The last clicked explorer item.
 let lastExplorerItem: { query:string, time:number };
+
+// The last query result.
+// TODO: Support query result history.
+let lastResult: QueryResult | undefined = undefined;
 
 const constants = {
 	names: ['','boolean','guid','','byte','short','int','long','real','float','char','symbol','timestamp','month','date','datetime','timespan','minute','second','time','symbol'],
@@ -82,6 +87,31 @@ export function activate(context: vscode.ExtensionContext) {
 	// Samples of `window.registerTreeDataProvider`
 	explorerProvider = new KdbExplorerProvider(null);
 	vscode.window.registerTreeDataProvider('vscode-kdb-q-explorer', explorerProvider);
+
+	// Register a content provider for our result scheme.
+	const resultScheme = 'vscode-kdb-q';
+	const resultProvider = new class implements vscode.TextDocumentContentProvider {
+
+		// emitter and its event
+		onDidChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
+		onDidChange = this.onDidChangeEmitter.event;
+
+		provideTextDocumentContent(uri: vscode.Uri): string {
+			let result = lastResult!;
+
+			// Determine alignment for each column
+			let headers = result.meta.map(m => m.c);
+			let aligns = result.meta.map(m => m.t === "f" ? "." : "l");
+			let opts = { align: aligns };
+			let data = result.data;
+
+			// Return formatted table.
+			let text: string = isTable(result) ? formatTable(headers, data, opts) : data;
+			return text;
+		}
+	};
+
+	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(resultScheme, resultProvider));
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
@@ -280,8 +310,12 @@ function executeQuery(context: vscode.ExtensionContext, query: string) {
 		// Stringify result, since we'LL be outputting this somewhere anyway.
 		result.data = stringifyResult(result);
 
+		// Store into global last result.
+		lastResult = result;
+
 		// Show in grid and console.
 		showConsole(context, query, result);
+		showResult(context, query, result);
 		showGrid(context, result);
 	});
 }
@@ -341,6 +375,26 @@ function updateGlobals(result: any): void {
 	});
 
 	explorerProvider.refresh(result);
+}
+
+function showResult(context: vscode.ExtensionContext, query: string, result: QueryResult) {
+	let title = "KDB+ Query Result\n" + query.substring(0, 40);
+	let uri = vscode.Uri.parse('vscode-kdb-q:' + title);
+
+	vscode.workspace.openTextDocument(uri)
+	.then((document: vscode.TextDocument) => {
+		vscode.languages.setTextDocumentLanguage(document, "q");
+
+		vscode.window.showTextDocument(document, {
+			preview: true,
+			preserveFocus: true,
+			viewColumn: vscode.ViewColumn.Beside,
+		}).then(editor => {
+			resultPanel = editor;
+		});
+	}, (error: any) => {
+		console.error(error);
+	});
 }
 
 function showConsole(context: vscode.ExtensionContext, query: string, result: QueryResult) {
@@ -414,7 +468,7 @@ function showGrid(context: vscode.ExtensionContext, result: QueryResult): void {
 	}
 	else {
 		// Otherwise, create a new panel
-		gridPanel = vscode.window.createWebviewPanel('kdb-q-grid', 'KDB+ Result', { preserveFocus: true, viewColumn: columnToShowIn }, { enableScripts: true, retainContextWhenHidden: true });
+		gridPanel = vscode.window.createWebviewPanel('kdb-q-grid', 'KDB+ Grid', { preserveFocus: true, viewColumn: columnToShowIn }, { enableScripts: true, retainContextWhenHidden: true });
 		
 		const uriAgGrid = gridPanel.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'libs', 'ag-grid', 'ag-grid-community.min.noStyle.js')));
 		const uriAgGridCSS = gridPanel.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'libs', 'ag-grid', 'ag-grid.css')));
