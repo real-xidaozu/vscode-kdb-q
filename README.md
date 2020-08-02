@@ -22,7 +22,7 @@ The extension currently provides the following features:
 
 ## Demonstration 
 
-![Demo](https://real-xidaozu.github.io/img/static/vscode-kdb-q-demo.gif)
+![Demo](https://github.com/real-xidaozu/real-xidaozu.github.io/blob/master/img/static/vscode-kdb-q-demo.gif?raw=true)
 
 ## Requirements
 
