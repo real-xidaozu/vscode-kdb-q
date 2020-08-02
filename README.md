@@ -14,9 +14,9 @@ The extension currently provides the following features:
 * Accurate syntax highlighting
 * Reliable code completion (based on remote server process)
 * Running kdb+ queries and output the result to multiple views
-  * Syntax highlighted document view for query results
-  * High performance grid view for table results
-  * Console view supporting even the largest table sizes 
+* Syntax highlighted document view for query results
+* High performance grid view for table results
+* Console view supporting even the largest table sizes 
 * Explorer view exposing all functions and variables
 * Server view configurable per workspace (settings.json)
 
