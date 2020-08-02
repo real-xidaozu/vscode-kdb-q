@@ -333,12 +333,12 @@ function executeQuery(context: vscode.ExtensionContext, query: string) {
             showConsoleView(context, query, result);
         }
 
-        if (config.get("vscode-kdb-q.gridViewEnabled")) {
-            showGridView(context, result);
-        }
-
         if (config.get("vscode-kdb-q.documentViewEnabled")) {
             showDocumentView(context, query, result);
+        }
+
+        if (config.get("vscode-kdb-q.gridViewEnabled")) {
+            showGridView(context, result);
         }
     });
 }
@@ -401,13 +401,15 @@ function updateGlobals(result: any): void {
 }
 
 function showDocumentView(context: vscode.ExtensionContext, query: string, result: QueryResult) {
-    let title = "KDB+ Query Result\n" + query.substring(0, 40);
+    let title = `KDB+ Result - ${moment(Date.now()).format("hh:mm:ss.SSS")}\n${query.substring(0, 40)}`;
     let uri = vscode.Uri.parse('vscode-kdb-q:' + title);
 
     let position: string | undefined = vscode.workspace.getConfiguration().get("vscode-kdb-q.documentViewPosition");
-    let columnToShowIn = position === "Grid"
-        ? (gridPanel?.viewColumn || (<any>vscode.ViewColumn)[position!])
-        : (<any>vscode.ViewColumn)[position!];
+    if (position === "Grid") {
+        position = vscode.workspace.getConfiguration().get("vscode-kdb-q.gridViewPosition");
+    }
+
+    let columnToShowIn = (<any>vscode.ViewColumn)[position!];
 
     vscode.workspace.openTextDocument(uri)
     .then((document: vscode.TextDocument) => {
@@ -492,7 +494,7 @@ function showGridView(context: vscode.ExtensionContext, result: QueryResult): vo
 
     if (gridPanel) {
         // If we already have a panel, show it in the target column
-        gridPanel.reveal(columnToShowIn, true);
+        // gridPanel.reveal(columnToShowIn, true);
     }
     else {
         // Otherwise, create a new panel
