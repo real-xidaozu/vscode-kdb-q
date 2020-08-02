@@ -15,6 +15,7 @@ The extension currently provides the following features:
 * Reliable code completion (based on remote server process)
 * Running kdb+ queries and output the result in a console
 * Show table results in a high performance grid view
+* Syntax highlighted document view for query results
 * Explorer view exposing all functions and variables
 
 ## Demonstration 
@@ -23,20 +24,32 @@ The extension currently provides the following features:
 
 ## Requirements
 
-None in particular, although kdb+ 3.6 or higher is recommended.
+VS Code 1.47.0 is required and kdb+ 3.6 or higher is recommended.
 
 ## Extension Settings
 
-Settings will be added in the near future.
+| Name                                | Default    | Description                                                                      |
+| ------------------------------------| ---------- | -------------------------------------------------------------------------------- |
+| `vscode-kdb-q.consoleViewEnabled`   | `false`    | Whether query results should be printed to the kdb-q console                     |
+| `vscode-kdb-q.gridViewEnabled`      | `true`     | Whether table query results should be printed to the grid view                   |
+| `vscode-kdb-q.documentViewEnabled`  | `true`     | Whether query results should be printed to a syntax highlighted virtual document |
+| `vscode-kdb-q.gridViewPosition`     | `Two`      | The view column used show the grid view                                          |
+| `vscode-kdb-q.documentViewPosition` | `Grid`     | The view column used show the document view                                      |
+
+## Keyboard Shortcuts
+
+| Keyboard shortcut                                                | Command                      |
+| ---------------------------------------------------------------- | ---------------------------- |
+| <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>Q</kbd>                    | Connect to kdb+ server       |
+| <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>E</kbd>                    | Run selection as query       |
+| <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>Enter</kbd>                | Run current line as query    |
 
 ## Known Issues
 
 Below is a list of known issues and incomplete features:
 
-* Console output from query results can be shown slightly different
-* The explorer view is initialized only once upon connection
 * Code completion is not supported when not connected to a kdb+ server
-* Nested objects and functions are not printed to console
+* Nested table objects are not printed to console/document view
 
 ## License
 
@@ -44,6 +57,25 @@ Licensed under GNU General Public License v3.0.
 See the license file for more details.
 
 ## Release Notes
+
+### 1.1.0
+
+New features:
+
+* Syntax highlighted document view for query results
+* Extension settings for enabled panels and their positions
+* Click items from kdb+ explorer to see their contents
+* Default keybindings (Ctrl+Q for connect, Ctrl+E/Ctrl+Enter for running queries)
+* Support for filtering dates and numbers in grid view
+* Connection status bar item is now clickable to connect
+* Nanosecond precision for timespans (up from milliseconds)
+* Microsecond precision for timestamps (up from milliseconds)
+
+Bug fixes:
+
+* Fixed auto completion not working in some cases
+* Fixed printing of empty tables
+* Fixed variables in global namespace in kdb+ explorer
 
 ### 1.0.0
 

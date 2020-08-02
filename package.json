@@ -3,7 +3,7 @@
 	"name": "vscode-kdb-q",
 	"displayName": "vscode-kdb-q",
 	"description": "Provides kdb+/q language features for Visual Studio Code",
-	"version": "1.0.1",
+	"version": "1.1.0",
 	"icon": "resources/static/logo.png",
 	"homepage": "https://github.com/real-xidaozu/vscode-kdb-q",
 	"license": "GPL3",
@@ -149,7 +149,7 @@
 			  },
 			  "vscode-kdb-q.documentViewPosition": {
 				"type": "string",
-				"default": "Two",
+				"default": "Grid",
 				"enum": ["Grid", "Active", "Beside", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"],
 				"enumDescriptions": [
 					"The panel of grid result view",
