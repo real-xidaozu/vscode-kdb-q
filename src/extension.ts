@@ -235,6 +235,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// create a new status bar item that we can now manage
 	connectionStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+	connectionStatus.command = 'vscode-kdb-q.connectToServer';
 	connectionStatus.show();
 	
 	// connectionStatus.command = myCommandId;
