@@ -401,7 +401,7 @@ function updateGlobals(result: any): void {
 }
 
 function showDocumentView(context: vscode.ExtensionContext, query: string, result: QueryResult) {
-    let title = `KDB+ Result - ${moment(Date.now()).format("hh:mm:ss.SSS")}\n${query.substring(0, 40)}`;
+    let title = `KDB+ Result - ${moment(Date.now()).format("HH:mm:ss.SSS")}\n${query.substring(0, 40)}`;
     let uri = vscode.Uri.parse('vscode-kdb-q:' + title);
 
     let position: string | undefined = vscode.workspace.getConfiguration().get("vscode-kdb-q.documentViewPosition");
