@@ -316,15 +316,15 @@ function executeQuery(context: vscode.ExtensionContext, query: string) {
 
 		const config = vscode.workspace.getConfiguration();
 		if (config.get("vscode-kdb-q.consoleViewEnabled")) {
-			showConsole(context, query, result);
+			showConsoleView(context, query, result);
 		}
 
 		if (config.get("vscode-kdb-q.gridViewEnabled")) {
-			showGrid(context, result);
+			showGridView(context, result);
 		}
 
 		if (config.get("vscode-kdb-q.documentViewEnabled")) {
-			showResult(context, query, result);
+			showDocumentView(context, query, result);
 		}
 	});
 }
@@ -386,7 +386,7 @@ function updateGlobals(result: any): void {
 	explorerProvider.refresh(result);
 }
 
-function showResult(context: vscode.ExtensionContext, query: string, result: QueryResult) {
+function showDocumentView(context: vscode.ExtensionContext, query: string, result: QueryResult) {
 	let title = "KDB+ Query Result\n" + query.substring(0, 40);
 	let uri = vscode.Uri.parse('vscode-kdb-q:' + title);
 
@@ -411,7 +411,7 @@ function showResult(context: vscode.ExtensionContext, query: string, result: Que
 	});
 }
 
-function showConsole(context: vscode.ExtensionContext, query: string, result: QueryResult) {
+function showConsoleView(context: vscode.ExtensionContext, query: string, result: QueryResult) {
 	if (consolePanel === undefined) {
 		consolePanel = vscode.window.createOutputChannel('kdb-q console');
 		consolePanel.show(true);
@@ -434,7 +434,7 @@ function showConsole(context: vscode.ExtensionContext, query: string, result: Qu
 	consolePanel.appendLine(text);
 }
 
-function showGrid(context: vscode.ExtensionContext, result: QueryResult): void {
+function showGridView(context: vscode.ExtensionContext, result: QueryResult): void {
 	if (!isTable(result)) {
 		return;
 	}
