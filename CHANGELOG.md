@@ -1,5 +1,10 @@
 # Change Log
 
+## 1.1.1
+
+* Added server view (configurable through settings.json)
+* Minor fixes to how result views are handled
+
 ## 1.1.0
 
 New features:

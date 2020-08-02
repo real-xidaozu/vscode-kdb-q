@@ -17,6 +17,7 @@ The extension currently provides the following features:
 * Show table results in a high performance grid view
 * Syntax highlighted document view for query results
 * Explorer view exposing all functions and variables
+* Server view configurable per workspace (settings.json)
 
 ## Demonstration 
 
@@ -35,6 +36,8 @@ VS Code 1.47.0 is required and kdb+ 3.6 or higher is recommended.
 | `vscode-kdb-q.documentViewEnabled`  | `true`     | Whether results should be printed to a virtual document  |
 | `vscode-kdb-q.gridViewPosition`     | `Two`      | The view column used show the grid view                  |
 | `vscode-kdb-q.documentViewPosition` | `Grid`     | The view column used show the document view              |
+| `vscode-kdb-q.serverList`           | `[]`       | Array with server connection strings (`host:port:id:pw`) |
+| `vscode-kdb-q.serverGroupMode`      | `Hostname` | The rule for server grouping withing the server view     |
 
 ## Keyboard Shortcuts
 
@@ -57,6 +60,11 @@ Licensed under GNU General Public License v3.0.
 See the license file for more details.
 
 ## Release Notes
+
+## 1.1.1
+
+* Added server view (configurable through settings.json)
+* Minor fixes to how result views are handled
 
 ### 1.1.0
 
