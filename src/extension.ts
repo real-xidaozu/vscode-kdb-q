@@ -473,21 +473,23 @@ function showGridView(context: vscode.ExtensionContext, result: QueryResult): vo
     });
 
     // This is stupid but convert strings back to numbers if possible.
-    for (let i = 0; i < result.meta.length; ++i) {
-        let t = result.meta[i].t;
-        let c = result.meta[i].c;
+    let data = result.data.map((x: any) => {
+        let y: any = Object.assign({}, x);
 
-        if (t === "f" || t === "e") {
-            for (let j = 0; j < result.data.length; ++j) {
-                result.data[j][c] = parseFloat(result.data[j][c]);
+        for (let i = 0; i < result.meta.length; ++i) {
+            let t = result.meta[i].t;
+            let c = result.meta[i].c;
+            
+            if (t === "f" || t === "e") {
+                y[c] = parseFloat(x[c]);
+            }
+            else if (t === "i" || t ===  "j" || t ===  "h" || t === "b") {
+                y[c] = parseInt(x[c]);
             }
         }
-        else if (t === "i" || t ===  "j" || t ===  "h" || t === "b") {
-            for (let j = 0; j < result.data.length; ++j) {
-                result.data[j][c] = parseInt(result.data[j][c]);
-            }
-        }
-    }
+        
+        return y;
+    });
 
     const position: string | undefined = vscode.workspace.getConfiguration().get("vscode-kdb-q.gridViewPosition");
     const columnToShowIn: vscode.ViewColumn = (<any>vscode.ViewColumn)[position!];
@@ -605,7 +607,7 @@ function showGridView(context: vscode.ExtensionContext, result: QueryResult): vo
         }, null, context.subscriptions);
     }
 
-    gridPanel.webview.postMessage({ columns: columnDefinitions, payload: result.data });
+    gridPanel.webview.postMessage({ columns: columnDefinitions, payload: data });
 }
 
 function isTable(result: QueryResult): boolean {
@@ -793,6 +795,10 @@ function stringify(t: string, x: any): string {
     if (x instanceof Array) {
         if (x.length === 0) {
             return "()"; // TODO: Add type in front of ()?
+        }
+
+        if (typeof(x[0]) === "object") {
+            return "[nested]";
         }
 
         return (x.length > 1 ? '' : ',') +
