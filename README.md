@@ -62,7 +62,11 @@ See the license file for more details.
 
 ## Release Notes
 
-## 1.1.1
+### 1.1.2
+
+* Minor fixes to grid view, and nested object formatting
+
+### 1.1.1
 
 * Added server view (configurable through settings.json)
 * Minor fixes to how result views are handled

@@ -1,5 +1,9 @@
 # Change Log
 
+## 1.1.2
+
+* Minor fixes to grid view, and nested object formatting
+
 ## 1.1.1
 
 * Added server view (configurable through settings.json)
