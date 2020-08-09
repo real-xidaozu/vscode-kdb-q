@@ -62,6 +62,14 @@ See the license file for more details.
 
 ## Release Notes
 
+### 1.2.0
+
+* Added support for printing dictionaries and keyed tables
+* Added icon to status bar to indicate connection status
+* Added auto (re)connect upon query
+* Several bug fixes regarding query results
+* Usability and interface improvements
+
 ### 1.1.2
 
 * Minor fixes to grid view, and nested object formatting

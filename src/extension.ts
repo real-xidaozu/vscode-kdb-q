@@ -111,7 +111,7 @@ export class Connection {
 		// Connect to kdb+ server.
 		nodeq.connect(options, (err, conn) => {
 			if (err || !conn) {
-                vscode.window.showErrorMessage(`Failed to connect to ${options.host}:${options.port}!`);
+                vscode.window.showErrorMessage(`Failed to connect to ${options.host}:${options.port}! [${err?.message}]`);
                 return;
 			}
 
@@ -162,10 +162,12 @@ export class Connection {
     
         const maxCols = 2000;
         const maxRows = 2000;
-        const maxNestedCols = 200;
+
+        let maxNestedCols: number | undefined = vscode.workspace.getConfiguration().get("vscode-kdb-q.nestedObjectMaximumCharacterCount");
+        maxNestedCols = Math.max(0, Math.min(maxNestedCols!, 2000));
 
         // Wrap the query result, make sure the query is executed in global scope.
-        var trap = '.Q.trp[{ x:value x; s:{ $[type[x] in 0 98 99h; .Q.s1 x; x] }; x:$[not 99h = type x; x; &[98h = type key x; 98h = type value x]; [kc:cols key x; 0!x]; x]; t:type x; c:system "c"; system "c ' + maxRows + ' ", string $[type[x] = 98h; ' + maxNestedCols + '; ' + maxCols + ']; r:`result`type`keys`meta`data!(1b; t; kc; $[t = 98h; 0!meta x; ()]; $[t = 98h; s each/: x; t in 0 99h; .Q.s x; x]); system "c ", .Q.s1 c; :r }; ; { \'(x, "\n\n", .Q.sbt y) }]';
+        let trap = '.Q.trp[{ x:value x; s:{ $[type[x] in 0 98 99h; .Q.s1 x; x] }; x:$[not 99h = type x; x; &[98h = type key x; 98h = type value x]; [kc:cols key x; 0!x]; x]; t:type x; c:system "c"; system "c ' + maxRows + ' ", string $[t = 98h; ' + maxNestedCols + '; ' + maxCols + ']; r:`result`type`keys`meta`data!(1b; t; kc; $[t = 98h; 0!meta x; ()]; $[t = 98h; s each/: x; t in 0 99h; .Q.s x; x]); system "c ", .Q.s1 c; :r }; ; { \'(x, "\n\n", .Q.sbt y) }]';
     
         // // TODO: Make these configurable through settings.
         // // A server explorer showing all servers available in gateway is also nice.
