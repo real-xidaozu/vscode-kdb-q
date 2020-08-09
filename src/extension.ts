@@ -150,25 +150,29 @@ export class Connection {
     }
     
     public executeQuery(context: vscode.ExtensionContext, query: string) {
-        if (!this.connection || !this.connected) {
+        if (!this.connection || !this.connected || query.trim().length === 0) {
             return;
         }
     
+        const maxCols = 2000;
+        const maxRows = 2000;
+        const maxNestedCols = 200;
+
         // Wrap the query result, make sure the query is executed in global scope.
-        var wrapped = '{ x:$[not 99h = t:type x; x; 98h = type key x; 0!x; enlist x]; `result`type`meta`data!(1b; t; $[t in 98 99h; 0!meta x; ()]; x) } ' + query;
+        var trap = '.Q.trp[{ x:value x; s:{ $[type[x] in 0 98 99h; .Q.s1 x; x] }; x:$[not 99h = type x; x; 98h = type key x; 0!x; x]; t:type x; c:system "c"; system "c ' + maxRows + ' ", string $[type[x] = 98h; ' + maxNestedCols + '; ' + maxCols + ']; r:`result`type`meta`data!(1b; t; $[t = 98h; 0!meta x; ()]; $[t = 98h; s each/: x; t in 0 99h; .Q.s x; x]); system "c ", .Q.s1 c; :r }; ; { \'(x, "\n\n", .Q.sbt y) }]';
     
-        // TODO: Make these configurable through settings.
-        // A server explorer showing all servers available in gateway is also nice.
-        var gatewayMode = false;
-        var serverType = "hdb";
+        // // TODO: Make these configurable through settings.
+        // // A server explorer showing all servers available in gateway is also nice.
+        // var gatewayMode = false;
+        // var serverType = "hdb";
     
-        if (gatewayMode) {
-            // Wrap the result in a gateway call, make sure to escape double quotes.
-            wrapped = '.gw.syncexec["' + wrapped.replace(/"/g, '\\"') + '"; `' + serverType +']';
-        }
+        // if (gatewayMode) {
+        //     // Wrap the result in a gateway call, make sure to escape double quotes.
+        //     wrapped = '.gw.syncexec["' + wrapped.replace(/"/g, '\\"') + '"; `' + serverType +']';
+        // }
     
         // Flush query through connection and print result.
-        this.connection.k(wrapped, (err, result: QueryResult) => {
+        this.connection.k(trap, query, (err, result: QueryResult) => {
             if (err) {
                 result = { result: false, type: 11, meta: [], data: err.message };
             }
@@ -706,12 +710,12 @@ function stringifyResult(result: QueryResult) {
         return `'${result.data}`;
     }
 
-    // If it's not a table, perform simple stringification.
-    if (!isTable(result)) {
-        return stringify(constants.types[Math.abs(result.type!)], result.data);
+    if (isTable(result)) {
+        return stringifyTable(result.meta, result.data);
     }
 
-    return stringifyTable(result.meta, result.data);
+    // If it's not a table, perform simple stringification.
+    return stringify(constants.types[Math.abs(result.type!)], result.data);
 }
 
 function stringifyTable(meta: MetaResult[], rows: any): any {
@@ -869,9 +873,15 @@ function pad(num: number, size: number) {
 }
 
 function stringify(t: string, x: any): string {
-    let isObject = typeof(x) === "object";
+    let type = typeof(x);
+    let isObject = type === "object";
+
     if (!x && isObject) {
         return "";
+    }
+
+    if (type === "string") {
+        return x;
     }
 
     // This bit here is for vectors.
