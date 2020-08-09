@@ -63,6 +63,7 @@ export type MetaResult = {
 export type QueryResult = {
     result: boolean,
     type: number,
+    keys: string[],
     meta: MetaResult[],
     data: any,
 };
@@ -110,7 +111,8 @@ export class Connection {
 		// Connect to kdb+ server.
 		nodeq.connect(options, (err, conn) => {
 			if (err || !conn) {
-				throw err;
+                vscode.window.showErrorMessage(`Failed to connect to ${options.host}:${options.port}!`);
+                return;
 			}
 
 			// Setup up connection close listener, update status bar if closed.
@@ -123,7 +125,7 @@ export class Connection {
 			});
 
 			// Close existing connection, since we established a new one successfully.
-			if (this.connection) {
+			if (this.connection && this.connected) {
 				this.connection.close(() => {
                     this.onConnect(err, conn, callback);
 				});
@@ -159,7 +161,7 @@ export class Connection {
         const maxNestedCols = 200;
 
         // Wrap the query result, make sure the query is executed in global scope.
-        var trap = '.Q.trp[{ x:value x; s:{ $[type[x] in 0 98 99h; .Q.s1 x; x] }; x:$[not 99h = type x; x; 98h = type key x; 0!x; x]; t:type x; c:system "c"; system "c ' + maxRows + ' ", string $[type[x] = 98h; ' + maxNestedCols + '; ' + maxCols + ']; r:`result`type`meta`data!(1b; t; $[t = 98h; 0!meta x; ()]; $[t = 98h; s each/: x; t in 0 99h; .Q.s x; x]); system "c ", .Q.s1 c; :r }; ; { \'(x, "\n\n", .Q.sbt y) }]';
+        var trap = '.Q.trp[{ x:value x; s:{ $[type[x] in 0 98 99h; .Q.s1 x; x] }; x:$[not 99h = type x; x; &[98h = type key x; 98h = type value x]; [kc:cols key x; 0!x]; x]; t:type x; c:system "c"; system "c ' + maxRows + ' ", string $[type[x] = 98h; ' + maxNestedCols + '; ' + maxCols + ']; r:`result`type`keys`meta`data!(1b; t; kc; $[t = 98h; 0!meta x; ()]; $[t = 98h; s each/: x; t in 0 99h; .Q.s x; x]); system "c ", .Q.s1 c; :r }; ; { \'(x, "\n\n", .Q.sbt y) }]';
     
         // // TODO: Make these configurable through settings.
         // // A server explorer showing all servers available in gateway is also nice.
@@ -174,12 +176,12 @@ export class Connection {
         // Flush query through connection and print result.
         this.connection.k(trap, query, (err, result: QueryResult) => {
             if (err) {
-                result = { result: false, type: 11, meta: [], data: err.message };
+                result = { result: false, type: 11, keys: [], meta: [], data: err.message };
             }
     
-            // If the result was null, it means the query returned identity (::).
-            if (!result) {
-                result = { result: true, type: 101, meta: [], data: "::" };
+            // If the result typw was 101, it means the query returned identity (::).
+            if (result.type === 101) {
+                result.data = "::" ;
             }
     
             // Stringify result, since we'LL be outputting this somewhere anyway.
@@ -275,7 +277,7 @@ export function activate(context: vscode.ExtensionContext) {
             // Determine alignment for each column
             let headers = result.meta.map(m => m.c);
             let aligns = result.meta.map(m => m.t === "f" ? "." : "l");
-            let opts = { align: aligns };
+            let opts = { align: aligns, keys:result.keys };
             let data = result.data;
 
             // Return formatted table.
@@ -525,7 +527,7 @@ function showConsoleView(context: vscode.ExtensionContext, query: string, result
     // Determine alignment for each column
     let headers = result.meta.map(m => m.c);
     let aligns = result.meta.map(m => m.t === "f" ? "." : "l");
-    let opts = { align: aligns };
+    let opts = { align: aligns, keys: result.keys };
     let data = result.data;
 
     // Return formatted table.
@@ -751,6 +753,7 @@ function formatTable(headers_: any, rows_: any, opts: any) {
 
     var hsep = opts.hsep === undefined ? ' ' : opts.hsep;
     var align = opts.align || [];
+    var keys = opts.keys || [];
     var stringLength = opts.stringLength || function (s: any) { return String(s).length; };
     
     var dotsizes = reduce(data, function (acc: any, row: any) {
@@ -817,15 +820,35 @@ function formatTable(headers_: any, rows_: any, opts: any) {
             
             return c + s;
         }).join(hsep);
-    }).join('\n');
+    });
     
-    var header = map(headers_, function (c: any, ix: any) {
+    // Add whitespace to each column header.
+    var headers = map(headers_, function (c: any, ix: any) {
         return c + ' '.repeat(Math.max(0, sizes[ix] - c.length));
-    }).join(hsep) + '\n';
+    });
 
-    var separator = '-'.repeat(header.length) + '\n';
+    // Find out where we should add key/value separator, if any.
+    var columnSeparatorIndex = 0;
+    for (let i = 0; i < keys.length; ++i) {
+        columnSeparatorIndex += headers[i].length;
+    }
+ 
+    // Repeat separator with same length as header.
+    var header = headers.join(hsep);
+    var separator = '-'.repeat(header.length);
 
-    return header + separator + result;
+    // Insert separator and header at zero index (in reverse order).
+    result.unshift(separator);
+    result.unshift(header);
+    
+    // Insert pipe at given index for each row.
+    if (columnSeparatorIndex > 0) {
+        const insertAt = (str: any, sub: any, pos: any) => `${str.slice(0, pos)}${sub}${str.slice(pos)}`;
+        result = result.map((x: any) => insertAt(x, '|', columnSeparatorIndex + 1));
+    }
+
+    // Join all rows together.
+    return result.join('\n');
 };
 
 function dotoffsets(c: string) {
