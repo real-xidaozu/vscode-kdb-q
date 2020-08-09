@@ -8,7 +8,7 @@ import { KdbExplorerProvider } from './explorer';
 import { KdbServerProvider } from './servers';
 import * as moment from '../libs/momentjs/moment';
 
-let connection : nodeq.Connection;
+let currentConnection : Connection | undefined = undefined;
 let connectionStatus: vscode.StatusBarItem;
 
 // Track our current panels.
@@ -67,6 +67,166 @@ export type QueryResult = {
     data: any,
 };
 
+export class Connection {
+    options: nodeq.ConnectionParameters;
+    connection?: nodeq.Connection;
+    connected: boolean;
+    
+    constructor(connectingString: string) {
+		// kdb+ connection strings are split by colons.
+		const params = connectingString.split(":");
+
+		if (!params) {
+			throw new Error("Failed to parse input");
+		}
+
+		// Default connection options.
+		let options : nodeq.ConnectionParameters = {
+			nanos2date: false,
+			socketNoDelay: true,
+		};
+
+		// Parse parameters.
+		if (params.length > 0) { options.host = params[0]; }
+		if (params.length > 1) { options.port = +params[1]; }
+		if (params.length > 2) { options.user = params[2]; }
+		if (params.length > 3) { options.password = params[3]; }
+
+		// Assign to member variable.
+        this.options = options;
+        this.connected = false;
+    }
+    
+    public disconnect() {
+        if (this.connected) {
+            this.connection?.close();
+            this.connected = false;
+        }
+    }
+	
+	public connect(callback: nodeq.AsyncValueCallback<Connection>) {
+		let options = this.options;
+
+		// Connect to kdb+ server.
+		nodeq.connect(options, (err, conn) => {
+			if (err || !conn) {
+				throw err;
+			}
+
+			// Setup up connection close listener, update status bar if closed.
+			conn.addListener("close", (hadError: boolean) => {
+				// Let the user know that the remote connection was closed.
+				vscode.window.showErrorMessage(`Disconnected from ${options.host}:${options.port}!`);
+
+                this.connected = false;
+				updateConnectionStatus("");
+			});
+
+			// Close existing connection, since we established a new one successfully.
+			if (this.connection) {
+				this.connection.close(() => {
+                    this.onConnect(err, conn, callback);
+				});
+			}
+			else {
+                this.onConnect(err, conn, callback);
+            }
+		});
+    }
+
+    private onConnect(err: Error | undefined, conn: nodeq.Connection, callback: nodeq.AsyncValueCallback<Connection>) {
+        // Show the user that the connected was established.
+        vscode.window.showInformationMessage(`Connected to server ${this.options.host}:${this.options.port}!`);
+            
+        // No error, so we're connected.
+        this.connected = true;
+        this.connection = conn;
+
+        this.updateGlobals();
+        this.updateReservedKeywords();
+
+        updateConnection(this, this.options);
+        callback(err, this);
+    }
+    
+    public executeQuery(context: vscode.ExtensionContext, query: string) {
+        if (!this.connection || !this.connected) {
+            return;
+        }
+    
+        // Wrap the query result, make sure the query is executed in global scope.
+        var wrapped = '{ x:$[not 99h = t:type x; x; 98h = type key x; 0!x; enlist x]; `result`type`meta`data!(1b; t; $[t in 98 99h; 0!meta x; ()]; x) } ' + query;
+    
+        // TODO: Make these configurable through settings.
+        // A server explorer showing all servers available in gateway is also nice.
+        var gatewayMode = false;
+        var serverType = "hdb";
+    
+        if (gatewayMode) {
+            // Wrap the result in a gateway call, make sure to escape double quotes.
+            wrapped = '.gw.syncexec["' + wrapped.replace(/"/g, '\\"') + '"; `' + serverType +']';
+        }
+    
+        // Flush query through connection and print result.
+        this.connection.k(wrapped, (err, result: QueryResult) => {
+            if (err) {
+                result = { result: false, type: 11, meta: [], data: err.message };
+            }
+    
+            // If the result was null, it means the query returned identity (::).
+            if (!result) {
+                result = { result: true, type: 101, meta: [], data: "::" };
+            }
+    
+            // Stringify result, since we'LL be outputting this somewhere anyway.
+            result.data = stringifyResult(result);
+    
+            // Store into global last result.
+            lastResult = result;
+    
+            const config = vscode.workspace.getConfiguration();
+            if (config.get("vscode-kdb-q.consoleViewEnabled")) {
+                showConsoleView(context, query, result);
+            }
+    
+            if (config.get("vscode-kdb-q.documentViewEnabled")) {
+                showDocumentView(context, query, result);
+            }
+    
+            if (config.get("vscode-kdb-q.gridViewEnabled")) {
+                showGridView(context, result);
+            }
+        });
+    }
+
+    public updateGlobals() {
+        // Update globals upon successful connection.
+        let globalQuery = "{[q] t:system\"T\";tm:@[{$[x>0;[system\"T \",string x;1b];0b]};0;{0b}];r:$[tm;@[0;(q;::);{[tm; t; msgs] if[tm;system\"T \",string t];'msgs}[tm;t]];@[q;::;{'x}]];if[tm;system\"T \",string t];r}{do[1000;2+2];{@[{.z.ide.ns.r1:x;:.z.ide.ns.r1};x;{r:y;:r}[;x]]}({:x!{![sv[`;] each x cross `Tables`Functions`Variables; system each \"afv\" cross enlist[\" \"] cross enlist string x]} each x} [{raze x,.z.s'[{x where{@[{1#get x};x;`]~1#.q}'[x]}` sv'x,'key x]}`]),(enlist `.z)!flip (`.z.Tables`.z.Functions`.z.Variables)!(enlist 0#`;enlist `ac`bm`exit`pc`pd`pg`ph`pi`pm`po`pp`ps`pw`vs`ts`s`wc`wo`ws;enlist `a`b`e`f`h`i`k`K`l`o`q`u`w`W`x`X`n`N`p`P`z`Z`t`T`d`D`c`zd)}";
+        this.connection?.k(globalQuery, (err, result) => {
+            if (err) {
+                vscode.window.showErrorMessage(`Failed to retrieve kdb+ global variables: '${err.message}`);
+                return;
+            }
+
+            updateGlobals(result);
+        });
+    }
+
+    public updateReservedKeywords() {
+        // Update reserved keywords upon successful connection.
+        let reservedQuery = ".Q.res";
+        this.connection?.k(reservedQuery, (err, result) => {
+            if (err) {
+                vscode.window.showErrorMessage(`Failed to retrieve kdb+ reserved keywords: '${err.message}`);
+                return;
+            }
+
+            keywords = result;
+        });
+    }
+}
+//#endregion
+
 export function timer() {
     let timeStart = new Date().getTime();
     return {
@@ -101,7 +261,6 @@ export function activate(context: vscode.ExtensionContext) {
     // Register a content provider for our result scheme.
     const resultScheme = 'vscode-kdb-q';
     const resultProvider = new class implements vscode.TextDocumentContentProvider {
-
         // emitter and its event
         onDidChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
         onDidChange = this.onDidChangeEmitter.event;
@@ -128,86 +287,23 @@ export function activate(context: vscode.ExtensionContext) {
     // The commandId parameter must match the command field in package.json
     let connectToServer = vscode.commands.registerCommand('vscode-kdb-q.connectToServer', async (...args: any[]) => {
         if (args.length === 0) {
-            // The code you place here will be executed every time your command is executed
-            const input = await vscode.window.showInputBox({ prompt: "Please enter kdb+ connection string: "});
-            if (!input) {
-                return;
-            }
-
-            args[0] = input;
+            args[0] = await promptConnection();
         }
 
-        // kdb+ connection strings are split by colons.
-        const params = args[0].split(":");
-        if (!params) {
-            throw new Error("Failed to parse input");
+        if (args[0] === undefined || typeof(args[0]) !== "string") {
+            return;
         }
 
-        // Default connection options.
-        let options : nodeq.ConnectionParameters = {
-            nanos2date: false,
-            socketNoDelay: true,
-        };
-
-        // Parse parameters.
-        if (params.length > 0) { options.host = params[0]; }
-        if (params.length > 1) { options.port = +params[1]; }
-        if (params.length > 2) { options.user = params[2]; }
-        if (params.length > 3) { options.password = params[3]; }
-
-        // Connect to kdb+ server.
-        nodeq.connect(options, function(err, conn) {
-            if (err || !conn) {
-                throw err;
-            }
-
-            // Setup up connection close listener, update status bar if closed.
-            conn.addListener("close", (hadError: boolean) => {
-                // Let the user know that the remote connection was closed.
-                vscode.window.showErrorMessage(`Disconnected from ${options.host}:${options.port}!`);
-
-                updateConnectionStatus("");
-            });
-
-            // Show the user that the connected was established.
-            vscode.window.showInformationMessage(`Connected to server ${options.host}:${options.port}!`);
-
-            // Update globals upon successful connection.
-            let globalQuery = "{[q] t:system\"T\";tm:@[{$[x>0;[system\"T \",string x;1b];0b]};0;{0b}];r:$[tm;@[0;(q;::);{[tm; t; msgs] if[tm;system\"T \",string t];'msgs}[tm;t]];@[q;::;{'x}]];if[tm;system\"T \",string t];r}{do[1000;2+2];{@[{.z.ide.ns.r1:x;:.z.ide.ns.r1};x;{r:y;:r}[;x]]}({:x!{![sv[`;] each x cross `Tables`Functions`Variables; system each \"afv\" cross enlist[\" \"] cross enlist string x]} each x} [{raze x,.z.s'[{x where{@[{1#get x};x;`]~1#.q}'[x]}` sv'x,'key x]}`]),(enlist `.z)!flip (`.z.Tables`.z.Functions`.z.Variables)!(enlist 0#`;enlist `ac`bm`exit`pc`pd`pg`ph`pi`pm`po`pp`ps`pw`vs`ts`s`wc`wo`ws;enlist `a`b`e`f`h`i`k`K`l`o`q`u`w`W`x`X`n`N`p`P`z`Z`t`T`d`D`c`zd)}";
-            conn.k(globalQuery, function(err, result) {
-                if (err) {
-                    vscode.window.showErrorMessage(`Failed to retrieve kdb+ global variables: '${err.message}`);
-                    return;
-                }
-
-                updateGlobals(result);
-            });
-
-            // Update reserved keywords upon successful connection.
-            let reservedQuery = ".Q.res";
-            conn.k(reservedQuery, function(err, result) {
-                if (err) {
-                    vscode.window.showErrorMessage(`Failed to retrieve kdb+ reserved keywords: '${err.message}`);
-                    return;
-                }
-
-                keywords = result;
-            });
-
-            // Close existing connection, since we established a new one successfully.
-            if (connection) {
-                connection.close(() => {
-                    updateConnection(conn, options);
-                });
-            }
-            else {
-                updateConnection(conn, options);
-            }
-        });
+        if (currentConnection && currentConnection.connected) {
+            currentConnection.disconnect();
+        }
+        
+        currentConnection = connect(args[0]);
+        currentConnection.connect((err, result) => {});
     });
 
     let runSelectionQuery = vscode.commands.registerTextEditorCommand('vscode-kdb-q.runSelectionQuery',
-        (editor: vscode.TextEditor, edit: vscode.TextEditorEdit) =>
+        async (editor: vscode.TextEditor, edit: vscode.TextEditorEdit) =>
     {
         // Get the selected text.
         // TODO: Support multiple selections?
@@ -218,7 +314,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     let runLineQuery = vscode.commands.registerTextEditorCommand('vscode-kdb-q.runLineQuery',
-        (editor: vscode.TextEditor, edit: vscode.TextEditorEdit) =>
+        async (editor: vscode.TextEditor, edit: vscode.TextEditorEdit) =>
     {
         // Get current line.
         const lineNumber = editor.selection.active.line;
@@ -227,7 +323,9 @@ export function activate(context: vscode.ExtensionContext) {
         executeQuery(context, line.text);
     });
 
-    let runQuery = vscode.commands.registerCommand('vscode-kdb-q.runExplorerQuery', (...args: any[]) => {
+    let runQuery = vscode.commands.registerCommand('vscode-kdb-q.runExplorerQuery',
+        async (...args: any[]) =>
+    {
         if (!args || args.length === 0) {
             return;
         }
@@ -236,7 +334,7 @@ export function activate(context: vscode.ExtensionContext) {
         let doubleClickTime = 500;
 
         /*if (lastExplorerItem && lastExplorerItem.query === args[0] && (currentTime - lastExplorerItem.time) >= doubleClickTime)*/ {
-            executeQuery(context, args[0]);
+            await executeQuery(context, args[0]);
         }
 
         lastExplorerItem = {query: args[0], time: currentTime};
@@ -299,54 +397,39 @@ export function activate(context: vscode.ExtensionContext) {
 
 // This method is called when the extension is deactivated.
 export function deactivate() {
-    connection?.close();
+    currentConnection?.disconnect();
 }
 
-function executeQuery(context: vscode.ExtensionContext, query: string) {
-    // Wrap the query result, make sure the query is executed in global scope.
-    var wrapped = '{ x:$[not 99h = t:type x; x; 98h = type key x; 0!x; enlist x]; `result`type`meta`data!(1b; t; $[t in 98 99h; 0!meta x; ()]; x) }[' + query +']';
+async function promptConnection() {
+    return await vscode.window.showInputBox({ prompt: "Please enter kdb+ connection string: "});
+}
 
-    // TODO: Make these configurable through settings.
-    // A server explorer showing all servers available in gateway is also nice.
-    var gatewayMode = false;
-    var serverType = "hdb";
+function connect(connectionString: string): Connection {
+    return new Connection(connectionString);
+}
 
-    if (gatewayMode) {
-        // Wrap the result in a gateway call, make sure to escape double quotes.
-        wrapped = '.gw.syncexec["' + wrapped.replace(/"/g, '\\"') + '"; `' + serverType +']';
+async function executeQuery(context: vscode.ExtensionContext, query: string) {
+    if (!currentConnection) {
+        let cstr = await promptConnection();
+        currentConnection = cstr ? connect(cstr) : currentConnection;
     }
 
-    // Flush query through connection and print result.
-    connection.k(wrapped, function(err, result: QueryResult) {
-        if (err) {
-            result = { result: false, type: 11, meta: [], data: err.message };
+    if(currentConnection) {
+        if (!currentConnection.connected) {
+            currentConnection.connect((err, conn) => {
+                conn?.executeQuery(context, query);
+            });
         }
-
-        // Stringify result, since we'LL be outputting this somewhere anyway.
-        result.data = stringifyResult(result);
-
-        // Store into global last result.
-        lastResult = result;
-
-        const config = vscode.workspace.getConfiguration();
-        if (config.get("vscode-kdb-q.consoleViewEnabled")) {
-            showConsoleView(context, query, result);
+        else {
+            currentConnection?.executeQuery(context, query);
         }
-
-        if (config.get("vscode-kdb-q.documentViewEnabled")) {
-            showDocumentView(context, query, result);
-        }
-
-        if (config.get("vscode-kdb-q.gridViewEnabled")) {
-            showGridView(context, result);
-        }
-    });
+    }
 }
 
-function updateConnection(conn: nodeq.Connection, options: nodeq.ConnectionParameters): void {
+function updateConnection(conn: Connection, options: nodeq.ConnectionParameters): void {
     // Update global connection variable.
     // TODO: Support multiple active connections?
-    connection = conn;
+    currentConnection = conn;
 
     let hostname = `${options.host}:${options.port}`;
     updateConnectionStatus(hostname);
