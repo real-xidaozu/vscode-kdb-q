@@ -121,7 +121,7 @@ export class Connection {
 				vscode.window.showErrorMessage(`Disconnected from ${options.host}:${options.port}!`);
 
                 this.connected = false;
-				updateConnectionStatus("");
+				updateConnectionStatus(`${this.options.host}:${this.options.port}`, ConnectionStatus.Disconnected);
 			});
 
 			// Close existing connection, since we established a new one successfully.
@@ -147,7 +147,11 @@ export class Connection {
         this.updateGlobals();
         this.updateReservedKeywords();
 
-        updateConnection(this, this.options);
+        // Update global connection.
+        currentConnection = this;
+
+        updateConnectionStatus(`${this.options.host}:${this.options.port}`, ConnectionStatus.Connected);
+
         callback(err, this);
     }
     
@@ -175,6 +179,8 @@ export class Connection {
     
         // Flush query through connection and print result.
         this.connection.k(trap, query, (err, result: QueryResult) => {
+            updateConnectionStatus(`${this.options.host}:${this.options.port}`, ConnectionStatus.Connected);
+
             if (err) {
                 result = { result: false, type: 11, keys: [], meta: [], data: err.message };
             }
@@ -203,6 +209,8 @@ export class Connection {
                 showGridView(context, result);
             }
         });
+
+        updateConnectionStatus(`${this.options.host}:${this.options.port}`, ConnectionStatus.Querying);
     }
 
     public updateGlobals() {
@@ -398,7 +406,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }));
 
-    updateConnectionStatus("");
+    updateConnectionStatus("", ConnectionStatus.Disconnected);
 }
 
 // This method is called when the extension is deactivated.
@@ -432,23 +440,33 @@ async function executeQuery(context: vscode.ExtensionContext, query: string) {
     }
 }
 
-function updateConnection(conn: Connection, options: nodeq.ConnectionParameters): void {
-    // Update global connection variable.
-    // TODO: Support multiple active connections?
-    currentConnection = conn;
-
-    let hostname = `${options.host}:${options.port}`;
-    updateConnectionStatus(hostname);
+enum ConnectionStatus {
+    Disconnected,
+    Connected,
+    Querying
 }
 
-function updateConnectionStatus(hostname: string): void {
-    if (hostname && hostname.length > 0) {
-        connectionStatus.text = `kdb-q: ${hostname}`;
+function updateConnectionStatus(hostname: string, status: ConnectionStatus): void {
+    let icon = () => {
+        switch (status) {
+            case ConnectionStatus.Disconnected: return '$(close)';
+            case ConnectionStatus.Connected: return '$(check)';
+            case ConnectionStatus.Querying: return '$(sync~spin)';
+        }
+    };
+
+    if (status !== ConnectionStatus.Disconnected) {
         connectionStatus.color = "#00f000";
     }
     else {
-        connectionStatus.text = "kdb-q: disconnected";
         connectionStatus.color = "#f00000";
+    }
+
+    if (hostname && hostname.length > 0) {
+        connectionStatus.text = `kdb-q: ${hostname} ${icon()}`;
+    }
+    else {
+        connectionStatus.text = `kdb-q: disconnected ${icon()}`;
     }
 }
 
