@@ -213,7 +213,7 @@
 		"@typescript-eslint/parser": "^3.7.1",
 		"eslint": "^7.6.0",
 		"glob": "^7.1.6",
-		"mocha": "^8.1.0",
+		"mocha": "^8.4.0",
 		"typescript": "^3.9.7",
 		"vscode-test": "^1.3.0"
 	},
